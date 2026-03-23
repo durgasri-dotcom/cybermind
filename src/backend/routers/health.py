@@ -1,0 +1,31 @@
+from __future__ import annotations
+from datetime import datetime, timezone
+from fastapi import APIRouter, Request
+from configs.settings import settings
+
+router = APIRouter()
+
+
+@router.get("/health")
+async def health_check(request: Request):
+    rag_svc = getattr(request.app.state, "rag_service", None)
+    return {
+        "status": "healthy",
+        "platform": settings.app_name,
+        "version": settings.app_version,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "services": {
+            "rag": {
+                "ready": rag_svc.is_ready if rag_svc else False,
+                "vectors": rag_svc.num_vectors if rag_svc else 0,
+            },
+            "llm": {
+                "provider": settings.llm_provider,
+                "model": settings.llm_model,
+            },
+            "embeddings": {
+                "model": settings.embedding_model,
+            },
+            "vector_backend": "pinecone" if settings.use_pinecone else "faiss",
+        },
+    }

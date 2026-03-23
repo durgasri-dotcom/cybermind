@@ -1,0 +1,12 @@
+{
+  "chunks": [
+    "Ransomware encrypts files for impact"
+  ],
+  "metadata": [
+    {
+      "threat_id": "T1486",
+      "source": "MITRE ATT&CK",
+      "chunk_index": 0
+    }
+  ]
+}

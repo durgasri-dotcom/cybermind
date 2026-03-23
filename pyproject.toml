@@ -1,0 +1,33 @@
+[project]
+name = "cybermind"
+version = "1.0.0"
+description = "AI-Powered Threat Intelligence & Security Analytics Platform"
+requires-python = ">=3.11"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+select = ["E", "F", "I", "UP"]
+ignore = ["E501"]
+
+[tool.ruff.per-file-ignores]
+"__init__.py" = ["F401"]
+
+[tool.black]
+line-length = 100
+target-version = ["py311"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"
+
+[tool.coverage.run]
+source = ["src"]
+omit = ["tests/*", "**/__init__.py"]
+
+[tool.coverage.report]
+skip_empty = true
+show_missing = true
