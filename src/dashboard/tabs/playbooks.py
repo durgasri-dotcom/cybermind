@@ -2,7 +2,7 @@ import streamlit as st
 import httpx
 from configs.settings import settings
 
-BACKEND = f"http://localhost:{settings.api_port}{settings.api_prefix}"
+BACKEND = f"http://127.0.0.1:{settings.api_port}{settings.api_prefix}"
 
 
 def fetch_playbooks():
@@ -21,86 +21,183 @@ def generate_playbook(payload: dict):
         return {"error": str(e)}
 
 
-TEAM_ICONS = {
-    "SOC Tier 1": "",
-    "SOC Tier 2": "",
-    "IR Team": "",
-    "Management": "",
-    "IT Operations": "",
+TEAM_CONFIG = {
+    "SOC Tier 1":    ("--cyan",   "◈"),
+    "SOC Tier 2":    ("--cyan",   "◉"),
+    "IR Team":       ("--orange", "⬡"),
+    "Management":    ("--text-secondary", "◇"),
+    "IT Operations": ("--green",  "⬢"),
 }
 
 
-def render():
-    st.title("📋 Incident Response Playbooks")
+def step_card(step: dict, T: dict) -> str:
+    team = step.get("responsible_team", "SOC Tier 1")
+    color_key, icon = TEAM_CONFIG.get(team, ("--text-secondary", "○"))
+    color = T[color_key]
+    tools = step.get("tools", [])
+    tools_str = " · ".join(tools) if tools else "—"
+    notes = step.get("notes", "")
 
-    tab_list, tab_generate = st.tabs(["Saved Playbooks", "Generate Playbook"])
+    return f"""
+    <div style='background: {T["--bg-card"]}; border: 1px solid {T["--border"]};
+                border-left: 3px solid {color}; border-radius: 6px;
+                padding: 0.9rem 1rem; margin-bottom: 0.5rem;'>
+        <div style='display: flex; justify-content: space-between; align-items: flex-start;'>
+            <div style='flex: 1;'>
+                <div style='font-family: JetBrains Mono, monospace; font-size: 0.6rem;
+                            color: {color}; letter-spacing: 0.1em; margin-bottom: 0.3rem;'>
+                    STEP {step["step_number"]:02d}
+                </div>
+                <div style='font-family: Rajdhani, sans-serif; font-size: 1rem;
+                            font-weight: 600; color: {T["--text-primary"]};
+                            margin-bottom: 0.4rem;'>
+                    {step["action"]}
+                </div>
+                <div style='font-family: JetBrains Mono, monospace; font-size: 0.65rem;
+                            color: {T["--text-dim"]};'>
+                    TOOLS: {tools_str}
+                </div>
+                {f'<div style="font-family: Inter, sans-serif; font-size: 0.8rem; color: {T["--text-secondary"]}; margin-top: 0.4rem; line-height: 1.5;">{notes[:200]}</div>' if notes else ""}
+            </div>
+            <div style='text-align: right; flex-shrink: 0; margin-left: 1rem;'>
+                <div style='font-family: JetBrains Mono, monospace; font-size: 0.65rem;
+                            color: {color};'>{icon} {team}</div>
+                <div style='font-family: JetBrains Mono, monospace; font-size: 0.6rem;
+                            color: {T["--text-dim"]}; margin-top: 0.3rem;'>
+                    ~{step.get("estimated_minutes", 30)} min
+                </div>
+            </div>
+        </div>
+    </div>
+    """
+
+
+def render(T: dict):
+    st.markdown(f"""
+    <div style='margin-bottom: 2rem;'>
+        <div style='font-family: Rajdhani, sans-serif; font-size: 2rem; font-weight: 700;
+                    color: {T["--text-primary"]}; letter-spacing: 0.05em;'>
+            INCIDENT RESPONSE PLAYBOOKS
+        </div>
+        <div style='font-family: JetBrains Mono, monospace; font-size: 0.7rem;
+                    color: {T["--text-dim"]}; letter-spacing: 0.15em; margin-top: 0.3rem;'>
+            AI-GENERATED · MITRE ATT&CK · STRUCTURED RESPONSE WORKFLOWS
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    tab_list, tab_generate = st.tabs(["SAVED PLAYBOOKS", "GENERATE PLAYBOOK"])
 
     with tab_list:
-        if st.button("Refresh", use_container_width=False):
+        if st.button("↻ REFRESH", use_container_width=False):
             st.rerun()
 
         data = fetch_playbooks()
 
         if "error" in data:
-            st.error(f"Backend error: {data['error']}")
+            st.markdown(f"""
+            <div style='background: {T["--error-bg"]}; border: 1px solid {T["--error-border"]};
+                        border-left: 3px solid {T["--red"]}; border-radius: 6px;
+                        padding: 0.8rem 1rem; font-family: JetBrains Mono, monospace;
+                        font-size: 0.8rem; color: {T["--red"]};'>⚠ {data["error"]}</div>
+            """, unsafe_allow_html=True)
             return
 
         playbooks = data.get("playbooks", [])
-        st.caption(f"{len(playbooks)} playbook(s) available")
+        st.markdown(f"""
+        <div style='font-family: JetBrains Mono, monospace; font-size: 0.65rem;
+                    color: {T["--text-dim"]}; letter-spacing: 0.1em; margin-bottom: 1rem;'>
+            {len(playbooks)} PLAYBOOK(S) AVAILABLE
+        </div>
+        """, unsafe_allow_html=True)
 
         if not playbooks:
-            st.info("No playbooks yet. Generate one from the Generate tab.")
-            return
+            st.markdown(f"""
+            <div style='background: {T["--bg-card"]}; border: 1px solid {T["--border"]};
+                        border-radius: 8px; padding: 2rem; text-align: center;
+                        font-family: JetBrains Mono, monospace; font-size: 0.8rem;
+                        color: {T["--text-dim"]};'>
+                NO PLAYBOOKS — Generate one from the Generate tab
+            </div>
+            """, unsafe_allow_html=True)
+        else:
+            for pb in reversed(playbooks):
+                with st.expander(f"⬡  {pb.get('title')} — {pb.get('threat_id')}"):
+                    st.markdown(f"""
+                    <div style='display: flex; gap: 0.6rem; margin-bottom: 1rem; flex-wrap: wrap;'>
+                        <span style='background: {T["--cyan-dim"]}; border: 1px solid {T["--cyan"]}44;
+                                     border-radius: 4px; padding: 0.2rem 0.6rem;
+                                     font-family: JetBrains Mono, monospace; font-size: 0.65rem;
+                                     color: {T["--cyan"]};'>{pb.get("threat_id")}</span>
+                        <span style='background: {T["--success-bg"]}; border: 1px solid {T["--success-border"]};
+                                     border-radius: 4px; padding: 0.2rem 0.6rem;
+                                     font-family: JetBrains Mono, monospace; font-size: 0.65rem;
+                                     color: {T["--green"]};'>{pb.get("status", "").upper()}</span>
+                        <span style='font-family: JetBrains Mono, monospace; font-size: 0.65rem;
+                                     color: {T["--text-dim"]};'>
+                            {pb.get("generated_at", "")[:19].replace("T", " ")} UTC
+                        </span>
+                    </div>
+                    <div style='font-family: Inter, sans-serif; font-size: 0.88rem;
+                                color: {T["--text-secondary"]}; margin-bottom: 1.2rem;
+                                line-height: 1.6;'>
+                        {pb.get("objective", "")}
+                    </div>
+                    """, unsafe_allow_html=True)
 
-        for pb in reversed(playbooks):
-            with st.expander(f" {pb.get('title')} — {pb.get('threat_id')}"):
-                st.markdown(f"**Objective:** {pb.get('objective')}")
-                st.markdown(f"**Status:** `{pb.get('status')}`")
-                st.markdown(f"**Generated:** {pb.get('generated_at', '')[:19].replace('T', ' ')}")
+                    for step in pb.get("steps", []):
+                        st.markdown(step_card(step, T), unsafe_allow_html=True)
 
-                steps = pb.get("steps", [])
-                if steps:
-                    st.divider()
-                    st.markdown("**Response Steps:**")
-                    for step in steps:
-                        team = step.get("responsible_team", "SOC Tier 1")
-                        icon = TEAM_ICONS.get(team, "👤")
-                        tools = step.get("tools", [])
-                        tools_str = f" · Tools: {', '.join(tools)}" if tools else ""
-                        time_str = f" · ~{step.get('estimated_minutes', 30)} min"
-
+                    tags = pb.get("tags", [])
+                    if tags:
+                        tags_html = " ".join([
+                            f"<span style='background: {T['--tag-bg']}; border-radius: 3px; "
+                            f"padding: 0.1rem 0.5rem; font-family: JetBrains Mono, monospace; "
+                            f"font-size: 0.6rem; color: {T['--text-dim']};'>{t}</span>"
+                            for t in tags
+                        ])
                         st.markdown(
-                            f"**Step {step['step_number']}: {step['action']}**  \n"
-                            f"{icon} {team}{tools_str}{time_str}"
+                            f"<div style='margin-top: 0.8rem; display: flex; "
+                            f"gap: 0.3rem; flex-wrap: wrap;'>{tags_html}</div>",
+                            unsafe_allow_html=True,
                         )
-                        if step.get("notes"):
-                            st.caption(step["notes"])
-                        st.divider()
-
-                tags = pb.get("tags", [])
-                if tags:
-                    st.markdown(" ".join(f"`{t}`" for t in tags))
 
     with tab_generate:
-        st.subheader("Generate AI Playbook")
-        st.caption("CyberMind will generate a structured incident response playbook for any MITRE technique or CVE.")
+        st.markdown(f"""
+        <div style='font-family: Rajdhani, sans-serif; font-size: 1.1rem; font-weight: 600;
+                    color: {T["--text-secondary"]}; letter-spacing: 0.1em;
+                    text-transform: uppercase; margin-bottom: 1.5rem;'>
+            GENERATE AI INCIDENT RESPONSE PLAYBOOK
+        </div>
+        """, unsafe_allow_html=True)
 
-        with st.form("generate_form"):
-            threat_id = st.text_input("Threat ID", placeholder="T1486 — Data Encrypted for Impact")
-            context = st.text_area(
-                "Additional Context (optional)",
-                placeholder="e.g. Ransomware detected on 3 Windows servers in finance department",
-                height=100,
-            )
-            tools_input = st.text_input(
-                "Available SOC Tools (comma separated)",
-                placeholder="Splunk, CrowdStrike, Microsoft Sentinel",
-            )
-            submitted = st.form_submit_button("Generate Playbook")
+        threat_id = st.text_input(
+            "THREAT ID",
+            placeholder="T1486 — Data Encrypted for Impact",
+            key="pb_threat_id",
+        )
+        context = st.text_area(
+            "INCIDENT CONTEXT (optional)",
+            placeholder="e.g. Ransomware detected on 3 Windows servers in finance department",
+            height=100,
+            key="pb_context",
+        )
+        tools_input = st.text_input(
+            "AVAILABLE SOC TOOLS (comma separated)",
+            placeholder="Splunk, CrowdStrike, Microsoft Sentinel",
+            key="pb_tools",
+        )
 
-        if submitted:
+        if st.button("⟶ GENERATE PLAYBOOK", type="primary"):
             if not threat_id.strip():
-                st.warning("Threat ID is required.")
+                st.markdown(f"""
+                <div style='background: {T["--warn-bg"]}; border: 1px solid {T["--warn-border"]};
+                            border-left: 3px solid {T["--yellow"]}; border-radius: 6px;
+                            padding: 0.8rem 1rem; font-family: JetBrains Mono, monospace;
+                            font-size: 0.75rem; color: {T["--yellow"]};'>
+                    ⚠ THREAT ID REQUIRED
+                </div>
+                """, unsafe_allow_html=True)
             else:
                 tools = [t.strip() for t in tools_input.split(",") if t.strip()]
                 payload = {
@@ -112,25 +209,30 @@ def render():
                     result = generate_playbook(payload)
 
                 if "error" in result:
-                    st.error(f"Error: {result['error']}")
-                    return
+                    st.markdown(f"""
+                    <div style='background: {T["--error-bg"]}; border: 1px solid {T["--error-border"]};
+                                border-left: 3px solid {T["--red"]}; border-radius: 6px;
+                                padding: 0.8rem 1rem; font-family: JetBrains Mono, monospace;
+                                font-size: 0.8rem; color: {T["--red"]};'>
+                        ⚠ {result["error"]}
+                    </div>
+                    """, unsafe_allow_html=True)
+                else:
+                    st.markdown(f"""
+                    <div style='background: {T["--success-bg"]};
+                                border: 1px solid {T["--success-border"]};
+                                border-left: 3px solid {T["--green"]}; border-radius: 6px;
+                                padding: 0.8rem 1rem; font-family: JetBrains Mono, monospace;
+                                font-size: 0.75rem; color: {T["--green"]}; margin-bottom: 1.5rem;'>
+                        ✓ PLAYBOOK #{result.get("id")} GENERATED SUCCESSFULLY
+                    </div>
+                    <div style='font-family: Rajdhani, sans-serif; font-size: 1.3rem;
+                                font-weight: 700; color: {T["--text-primary"]};
+                                margin-bottom: 0.3rem;'>{result.get("title")}</div>
+                    <div style='font-family: Inter, sans-serif; font-size: 0.88rem;
+                                color: {T["--text-secondary"]}; margin-bottom: 1.5rem;
+                                line-height: 1.6;'>{result.get("objective")}</div>
+                    """, unsafe_allow_html=True)
 
-                st.success(f"Playbook #{result.get('id')} generated successfully.")
-                st.divider()
-                st.markdown(f"### {result.get('title')}")
-                st.markdown(f"**Objective:** {result.get('objective')}")
-
-                steps = result.get("steps", [])
-                for step in steps:
-                    team = step.get("responsible_team", "SOC Tier 1")
-                    icon = TEAM_ICONS.get(team, "👤")
-                    tools_used = step.get("tools", [])
-                    tools_str = f" · Tools: {', '.join(tools_used)}" if tools_used else ""
-
-                    st.markdown(
-                        f"**Step {step['step_number']}: {step['action']}**  \n"
-                        f"{icon} {team}{tools_str} · ~{step.get('estimated_minutes', 30)} min"
-                    )
-                    if step.get("notes"):
-                        st.caption(step["notes"])
-                    st.divider()
+                    for step in result.get("steps", []):
+                        st.markdown(step_card(step, T), unsafe_allow_html=True)

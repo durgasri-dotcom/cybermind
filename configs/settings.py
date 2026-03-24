@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     pinecone_index_name: str = "cybermind-threats"
 
     llm_provider: str = "groq"
-    llm_model: str = "llama-3.1-70b-versatile"
+    llm_model: str = "llama-3.3-70b-versatile"
     llm_max_tokens: int = 2048
     llm_temperature: float = 0.2
 

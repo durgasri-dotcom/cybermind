@@ -1,9 +1,26 @@
 import streamlit as st
 import httpx
 import plotly.graph_objects as go
+import math
 from configs.settings import settings
 
-BACKEND = f"http://localhost:{settings.api_port}{settings.api_prefix}"
+BACKEND = f"http://127.0.0.1:{settings.api_port}{settings.api_prefix}"
+
+ENTITY_TYPE_COLORS = {
+    "threat_actor":   "--red",
+    "malware":        "--orange",
+    "tool":           "--yellow",
+    "campaign":       "--cyan",
+    "infrastructure": "--text-secondary",
+}
+
+ENTITY_ICONS = {
+    "threat_actor": "🎭",
+    "malware": "🦠",
+    "tool": "🔧",
+    "campaign": "📡",
+    "infrastructure": "🖧",
+}
 
 
 def fetch_entities(entity_type=None):
@@ -37,43 +54,46 @@ def create_entity(payload: dict):
         return {"error": str(e)}
 
 
-ENTITY_COLORS = {
-    "threat_actor": "#ff4b4b",
-    "malware": "#ff8c00",
-    "tool": "#ffd700",
-    "campaign": "#00b4d8",
-    "infrastructure": "#9e9e9e",
-}
-
-
-def build_relationship_graph(entities: list) -> go.Figure:
-    node_x, node_y, node_text, node_colors = [], [], [], []
+def build_graph(entities: list, T: dict) -> go.Figure:
+    node_x, node_y = [], []
+    node_text, node_hover = [], []
+    node_colors, node_sizes = [], []
     edge_x, edge_y = [], []
 
-    import math
     n = len(entities)
     for i, entity in enumerate(entities):
         angle = 2 * math.pi * i / max(n, 1)
-        x = math.cos(angle)
-        y = math.sin(angle)
+        radius = 0.7 + (0.15 * (i % 3))
+        x = radius * math.cos(angle)
+        y = radius * math.sin(angle)
         node_x.append(x)
         node_y.append(y)
-        node_text.append(f"{entity['name']}<br>{entity['entity_type']}")
-        node_colors.append(ENTITY_COLORS.get(entity.get("entity_type", ""), "#9e9e9e"))
+        node_text.append(entity["name"])
+        node_hover.append(
+            f"<b>{entity['name']}</b><br>"
+            f"{entity.get('entity_type', '').upper()}<br>"
+            f"ID: {entity['entity_id']}<br>"
+            f"Techniques: {len(entity.get('associated_techniques', []))}"
+        )
+        color_key = ENTITY_TYPE_COLORS.get(entity.get("entity_type", ""), "--text-secondary")
+        node_colors.append(T[color_key])
+        node_sizes.append(18 + len(entity.get("associated_techniques", [])) * 0.8)
 
         for rel in entity.get("relationships", []):
-            target_id = rel.get("target_entity_id")
-            target = next((e for e in entities if e["entity_id"] == target_id), None)
+            target = next(
+                (e for e in entities if e["entity_id"] == rel.get("target_entity_id")), None
+            )
             if target:
                 t_idx = entities.index(target)
                 t_angle = 2 * math.pi * t_idx / max(n, 1)
-                edge_x += [x, math.cos(t_angle), None]
-                edge_y += [y, math.sin(t_angle), None]
+                t_radius = 0.7 + (0.15 * (t_idx % 3))
+                edge_x += [x, t_radius * math.cos(t_angle), None]
+                edge_y += [y, t_radius * math.sin(t_angle), None]
 
     edge_trace = go.Scatter(
         x=edge_x, y=edge_y,
         mode="lines",
-        line=dict(width=1, color="#555"),
+        line=dict(width=1, color=T["--border"]),
         hoverinfo="none",
     )
 
@@ -82,17 +102,27 @@ def build_relationship_graph(entities: list) -> go.Figure:
         mode="markers+text",
         text=node_text,
         textposition="top center",
+        textfont=dict(
+            family="Rajdhani",
+            size=11,
+            color=T["--text-secondary"],
+        ),
+        hovertext=node_hover,
         hoverinfo="text",
-        marker=dict(size=14, color=node_colors, line=dict(width=1, color="#fff")),
+        marker=dict(
+            size=node_sizes,
+            color=node_colors,
+            line=dict(width=2, color=T["--bg-primary"]),
+        ),
     )
 
     fig = go.Figure(
         data=[edge_trace, node_trace],
         layout=go.Layout(
             paper_bgcolor="rgba(0,0,0,0)",
-            plot_bgcolor="rgba(0,0,0,0)",
-            font_color="white",
+            plot_bgcolor=T["--plot-bg"],
             showlegend=False,
+            height=450,
             margin=dict(t=20, b=20, l=20, r=20),
             xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
             yaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
@@ -101,81 +131,224 @@ def build_relationship_graph(entities: list) -> go.Figure:
     return fig
 
 
-def render():
-    st.title("🕸️ Entity Graph")
-    st.caption("Threat actors, malware families, tools, and their relationships.")
+def render(T: dict):
+    st.markdown(f"""
+    <div style='margin-bottom: 2rem;'>
+        <div style='font-family: Rajdhani, sans-serif; font-size: 2rem; font-weight: 700;
+                    color: {T["--text-primary"]}; letter-spacing: 0.05em;'>ENTITY GRAPH</div>
+        <div style='font-family: JetBrains Mono, monospace; font-size: 0.7rem;
+                    color: {T["--text-dim"]}; letter-spacing: 0.15em; margin-top: 0.3rem;'>
+            THREAT ACTORS · MALWARE · TOOLS · RELATIONSHIP MAPPING
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
 
-    tab_graph, tab_list, tab_add = st.tabs(["Relationship Graph", "Entity List", "Add Entity"])
+    tab_graph, tab_list, tab_add = st.tabs(
+        ["RELATIONSHIP GRAPH", "ENTITY LIST", "ADD ENTITY"]
+    )
 
     with tab_graph:
-        entity_type_filter = st.selectbox(
-            "Filter by type",
-            ["All", "threat_actor", "malware", "tool", "campaign", "infrastructure"],
+        filter_col, _ = st.columns([2, 5])
+        with filter_col:
+            entity_type_filter = st.selectbox(
+                "FILTER BY TYPE",
+                ["All", "threat_actor", "malware", "tool",
+                 "campaign", "infrastructure"],
+                key="graph_filter",
+            )
+
+        data = fetch_entities(
+            None if entity_type_filter == "All" else entity_type_filter
         )
 
-        data = fetch_entities(None if entity_type_filter == "All" else entity_type_filter)
-
         if "error" in data:
-            st.error(f"Backend error: {data['error']}")
+            st.markdown(f"""
+            <div style='background: {T["--error-bg"]}; border: 1px solid {T["--error-border"]};
+                        border-left: 3px solid {T["--red"]}; border-radius: 6px;
+                        padding: 0.8rem 1rem; font-family: JetBrains Mono, monospace;
+                        font-size: 0.8rem; color: {T["--red"]};'>⚠ {data["error"]}</div>
+            """, unsafe_allow_html=True)
             return
 
         entities = data.get("entities", [])
 
         if not entities:
-            st.info("No entities loaded yet. Add entities or run the MITRE ingestion pipeline.")
-            return
+            st.markdown(f"""
+            <div style='background: {T["--bg-card"]}; border: 1px solid {T["--border"]};
+                        border-radius: 8px; padding: 3rem; text-align: center;
+                        font-family: JetBrains Mono, monospace; font-size: 0.8rem;
+                        color: {T["--text-dim"]};'>
+                NO ENTITIES — Add entities from the Add Entity tab
+            </div>
+            """, unsafe_allow_html=True)
+        else:
+            st.markdown(f"""
+            <div style='font-family: JetBrains Mono, monospace; font-size: 0.65rem;
+                        color: {T["--text-dim"]}; letter-spacing: 0.1em;
+                        margin-bottom: 0.8rem;'>
+                {len(entities)} ENTITIES · NODE SIZE = TECHNIQUE COUNT
+            </div>
+            """, unsafe_allow_html=True)
 
-        st.caption(f"{len(entities)} entities loaded")
-        fig = build_relationship_graph(entities)
-        st.plotly_chart(fig, use_container_width=True)
+            legend_cols = st.columns(5)
+            for col, (etype, color_key) in zip(
+                legend_cols, ENTITY_TYPE_COLORS.items()
+            ):
+                with col:
+                    st.markdown(f"""
+                    <div style='font-family: JetBrains Mono, monospace; font-size: 0.6rem;
+                                color: {T[color_key]}; letter-spacing: 0.05em;'>
+                        ● {etype.replace("_", " ").upper()}
+                    </div>
+                    """, unsafe_allow_html=True)
+
+            st.plotly_chart(build_graph(entities, T), use_container_width=True)
 
     with tab_list:
         data = fetch_entities()
         entities = data.get("entities", []) if "error" not in data else []
 
-        for entity in entities:
-            icon = {"threat_actor": "", "malware": "", "tool": "", "campaign": ""}.get(
-                entity.get("entity_type"), "❓"
-            )
-            with st.expander(f"{icon} {entity['name']} — {entity.get('entity_type', 'unknown')}"):
-                st.markdown(f"**ID:** `{entity['entity_id']}`")
-                st.markdown(f"**Description:** {entity.get('description', '')[:300]}")
+        if not entities:
+            st.markdown(f"""
+            <div style='background: {T["--bg-card"]}; border: 1px solid {T["--border"]};
+                        border-radius: 8px; padding: 2rem; text-align: center;
+                        font-family: JetBrains Mono, monospace; font-size: 0.8rem;
+                        color: {T["--text-dim"]};'>NO ENTITIES YET</div>
+            """, unsafe_allow_html=True)
+        else:
+            for entity in entities:
+                color_key = ENTITY_TYPE_COLORS.get(
+                    entity.get("entity_type", ""), "--text-secondary"
+                )
+                color = T[color_key]
+                icon = ENTITY_ICONS.get(entity.get("entity_type", ""), "?")
 
-                techniques = entity.get("associated_techniques", [])
-                if techniques:
-                    st.markdown(f"**Techniques:** {', '.join(techniques[:10])}")
+                with st.expander(
+                    f"{icon}  {entity['name']} — "
+                    f"{entity.get('entity_type', '').upper()}"
+                ):
+                    st.markdown(f"""
+                    <div style='display: flex; gap: 0.6rem; margin-bottom: 1rem;'>
+                        <span style='background: {color}22; border: 1px solid {color}55;
+                                     border-radius: 4px; padding: 0.2rem 0.6rem;
+                                     font-family: JetBrains Mono, monospace; font-size: 0.65rem;
+                                     color: {color};'>{entity["entity_id"]}</span>
+                    </div>
+                    <div style='font-family: Inter, sans-serif; font-size: 0.88rem;
+                                color: {T["--text-secondary"]}; margin-bottom: 1rem;
+                                line-height: 1.6;'>
+                        {entity.get("description", "")[:400]}
+                    </div>
+                    """, unsafe_allow_html=True)
 
-                if st.button("AI Enrich", key=f"enrich_{entity['entity_id']}"):
-                    with st.spinner("Generating threat profile..."):
-                        result = enrich_entity(entity["entity_id"])
-                    if "error" not in result:
-                        st.markdown("**Threat Profile:**")
-                        st.markdown(result.get("threat_profile", ""))
-                        detections = result.get("recommended_detections", [])
-                        if detections:
-                            st.markdown("**Recommended Detections:**")
-                            for d in detections:
-                                st.markdown(f"- {d}")
-                    else:
-                        st.error(result["error"])
+                    techniques = entity.get("associated_techniques", [])
+                    if techniques:
+                        tags_html = " ".join([
+                            f"<span style='background: {T['--cyan-dim']}; "
+                            f"border: 1px solid {T['--cyan']}33; border-radius: 3px; "
+                            f"padding: 0.1rem 0.4rem; font-family: JetBrains Mono, monospace; "
+                            f"font-size: 0.6rem; color: {T['--cyan']};'>{t}</span>"
+                            for t in techniques[:10]
+                        ])
+                        st.markdown(f"""
+                        <div style='font-family: JetBrains Mono, monospace; font-size: 0.6rem;
+                                    color: {T["--text-dim"]}; letter-spacing: 0.1em;
+                                    margin-bottom: 0.5rem;'>ASSOCIATED TECHNIQUES</div>
+                        <div style='display: flex; gap: 0.3rem; flex-wrap: wrap;
+                                    margin-bottom: 1rem;'>{tags_html}</div>
+                        """, unsafe_allow_html=True)
+
+                    if st.button("⟶ AI ENRICH",
+                                 key=f"enrich_{entity['entity_id']}"):
+                        with st.spinner("Generating threat profile..."):
+                            result = enrich_entity(entity["entity_id"])
+                        if "error" not in result:
+                            st.markdown(f"""
+                            <div style='background: {T["--bg-card"]};
+                                        border: 1px solid {T["--cyan"]}44;
+                                        border-left: 3px solid {T["--cyan"]};
+                                        border-radius: 6px; padding: 1rem;
+                                        margin-top: 0.5rem; font-family: Inter, sans-serif;
+                                        font-size: 0.88rem; color: {T["--text-primary"]};
+                                        line-height: 1.7;'>
+                                {result.get("threat_profile", "")}
+                            </div>
+                            """, unsafe_allow_html=True)
+                            detections = result.get("recommended_detections", [])
+                            if detections:
+                                st.markdown(f"""
+                                <div style='font-family: JetBrains Mono, monospace;
+                                            font-size: 0.65rem; color: {T["--text-dim"]};
+                                            letter-spacing: 0.1em; margin: 1rem 0 0.5rem;'>
+                                    RECOMMENDED DETECTIONS
+                                </div>
+                                """, unsafe_allow_html=True)
+                                for d in detections:
+                                    st.markdown(f"""
+                                    <div style='background: {T["--input-bg"]};
+                                                border: 1px solid {T["--border"]};
+                                                border-left: 2px solid {T["--green"]};
+                                                border-radius: 4px; padding: 0.4rem 0.8rem;
+                                                margin-bottom: 0.3rem;
+                                                font-family: Inter, sans-serif;
+                                                font-size: 0.82rem;
+                                                color: {T["--text-secondary"]};'>
+                                        ● {d}
+                                    </div>
+                                    """, unsafe_allow_html=True)
+                        else:
+                            st.error(result["error"])
 
     with tab_add:
-        st.subheader("Add Entity")
+        st.markdown(f"""
+        <div style='font-family: Rajdhani, sans-serif; font-size: 1.1rem; font-weight: 600;
+                    color: {T["--text-secondary"]}; letter-spacing: 0.1em;
+                    text-transform: uppercase; margin-bottom: 1.5rem;'>
+            ADD THREAT ENTITY
+        </div>
+        """, unsafe_allow_html=True)
 
-        with st.form("add_entity_form"):
-            entity_id = st.text_input("Entity ID", placeholder="G0007")
-            name = st.text_input("Name", placeholder="APT28")
-            entity_type = st.selectbox("Type", ["threat_actor", "malware", "tool", "campaign", "infrastructure"])
-            description = st.text_area("Description", height=100)
-            aliases = st.text_input("Aliases (comma separated)", placeholder="Fancy Bear, Sofacy")
-            techniques = st.text_input("Associated Techniques (comma separated)", placeholder="T1059, T1078")
-            sectors = st.text_input("Targeted Sectors (comma separated)", placeholder="Government, Defense")
-            countries = st.text_input("Targeted Countries (comma separated)", placeholder="US, UK, Ukraine")
-            submitted = st.form_submit_button("Add Entity")
+        col_a, col_b = st.columns(2)
+        with col_a:
+            entity_id = st.text_input("ENTITY ID", placeholder="G0007",
+                                       key="ent_id")
+        with col_b:
+            name = st.text_input("NAME", placeholder="APT28", key="ent_name")
 
-        if submitted:
+        entity_type = st.selectbox(
+            "TYPE",
+            ["threat_actor", "malware", "tool", "campaign", "infrastructure"],
+            key="ent_type",
+        )
+        description = st.text_area("DESCRIPTION", height=100, key="ent_desc")
+
+        col_c, col_d = st.columns(2)
+        with col_c:
+            aliases = st.text_input("ALIASES (comma separated)",
+                                     placeholder="Fancy Bear, Sofacy",
+                                     key="ent_aliases")
+            sectors = st.text_input("TARGETED SECTORS",
+                                     placeholder="Government, Defense",
+                                     key="ent_sectors")
+        with col_d:
+            techniques = st.text_input("ASSOCIATED TECHNIQUES",
+                                        placeholder="T1059, T1078, T1566",
+                                        key="ent_techniques")
+            countries = st.text_input("TARGETED COUNTRIES",
+                                       placeholder="US, UK, Ukraine",
+                                       key="ent_countries")
+
+        if st.button("⟶ ADD ENTITY", type="primary"):
             if not all([entity_id, name, description]):
-                st.warning("Entity ID, name, and description are required.")
+                st.markdown(f"""
+                <div style='background: {T["--warn-bg"]};
+                            border: 1px solid {T["--warn-border"]};
+                            border-left: 3px solid {T["--yellow"]}; border-radius: 6px;
+                            padding: 0.8rem 1rem; font-family: JetBrains Mono, monospace;
+                            font-size: 0.75rem; color: {T["--yellow"]};'>
+                    ⚠ ENTITY ID, NAME, AND DESCRIPTION REQUIRED
+                </div>
+                """, unsafe_allow_html=True)
             else:
                 payload = {
                     "entity_id": entity_id.strip(),
@@ -183,12 +356,28 @@ def render():
                     "entity_type": entity_type,
                     "description": description.strip(),
                     "aliases": [a.strip() for a in aliases.split(",") if a.strip()],
-                    "associated_techniques": [t.strip() for t in techniques.split(",") if t.strip()],
-                    "targeted_sectors": [s.strip() for s in sectors.split(",") if s.strip()],
-                    "targeted_countries": [c.strip() for c in countries.split(",") if c.strip()],
+                    "associated_techniques": [
+                        t.strip() for t in techniques.split(",") if t.strip()
+                    ],
+                    "targeted_sectors": [
+                        s.strip() for s in sectors.split(",") if s.strip()
+                    ],
+                    "targeted_countries": [
+                        c.strip() for c in countries.split(",") if c.strip()
+                    ],
+                    "source": "MITRE ATT&CK",
                 }
                 result = create_entity(payload)
                 if "error" not in result:
-                    st.success(f"Entity '{name}' added successfully.")
+                    st.markdown(f"""
+                    <div style='background: {T["--success-bg"]};
+                                border: 1px solid {T["--success-border"]};
+                                border-left: 3px solid {T["--green"]}; border-radius: 6px;
+                                padding: 0.8rem 1rem; font-family: JetBrains Mono, monospace;
+                                font-size: 0.75rem; color: {T["--green"]};'>
+                        ✓ ENTITY '{name.upper()}' ADDED SUCCESSFULLY
+                    </div>
+                    """, unsafe_allow_html=True)
+                    st.rerun()
                 else:
                     st.error(result["error"])

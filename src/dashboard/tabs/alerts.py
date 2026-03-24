@@ -2,7 +2,7 @@ import streamlit as st
 import httpx
 from configs.settings import settings
 
-BACKEND = f"http://localhost:{settings.api_port}{settings.api_prefix}"
+BACKEND = f"http://127.0.0.1:{settings.api_port}{settings.api_prefix}"
 
 
 def fetch_alerts(status=None):
@@ -34,98 +34,195 @@ def triage_alert(alert_id: int):
 
 def update_status(alert_id: int, status: str):
     try:
-        r = httpx.patch(f"{BACKEND}/alerts/{alert_id}/status", params={"status": status}, timeout=10)
+        r = httpx.patch(f"{BACKEND}/alerts/{alert_id}/status",
+                        params={"status": status}, timeout=10)
         return r.json()
     except Exception as e:
         return {"error": str(e)}
 
 
-PRIORITY_COLORS = {"P1": "🔴", "P2": "🟠", "P3": "🟡", "P4": "🟢"}
-STATUS_COLORS = {"open": "🔓", "in_progress": "🔄", "resolved": "✅", "false_positive": "❌"}
+def render(T: dict):
+    st.markdown(f"""
+    <div style='margin-bottom: 2rem;'>
+        <div style='font-family: Rajdhani, sans-serif; font-size: 2rem; font-weight: 700;
+                    color: {T["--text-primary"]}; letter-spacing: 0.05em;'>
+            SECURITY ALERTS
+        </div>
+        <div style='font-family: JetBrains Mono, monospace; font-size: 0.7rem;
+                    color: {T["--text-dim"]}; letter-spacing: 0.15em; margin-top: 0.3rem;'>
+            ALERT TRIAGE · AI-ASSISTED ANALYSIS · SOC WORKFLOW
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
 
-
-def render():
-    st.title("🚨 Security Alerts")
-
-    tab_list, tab_create = st.tabs(["Alert Feed", "Create Alert"])
+    tab_list, tab_create = st.tabs(["ALERT FEED", "CREATE ALERT"])
 
     with tab_list:
-        col1, col2 = st.columns([2, 1])
+        col1, col2 = st.columns([3, 1])
         with col1:
-            status_filter = st.selectbox("Filter by status", ["All", "open", "in_progress", "resolved", "false_positive"])
+            status_filter = st.selectbox(
+                "FILTER BY STATUS",
+                ["All", "open", "in_progress", "resolved", "false_positive"],
+                key="alert_filter",
+            )
         with col2:
-            if st.button("Refresh", use_container_width=True):
+            st.markdown("<div style='margin-top: 1.8rem;'></div>", unsafe_allow_html=True)
+            if st.button("↻ REFRESH", use_container_width=True):
                 st.rerun()
 
         data = fetch_alerts(status=None if status_filter == "All" else status_filter)
 
         if "error" in data:
-            st.error(f"Backend error: {data['error']}")
+            st.markdown(f"""
+            <div style='background: {T["--error-bg"]}; border: 1px solid {T["--error-border"]};
+                        border-left: 3px solid {T["--red"]}; border-radius: 6px;
+                        padding: 0.8rem 1rem; font-family: JetBrains Mono, monospace;
+                        font-size: 0.8rem; color: {T["--red"]};'>⚠ {data["error"]}</div>
+            """, unsafe_allow_html=True)
             return
 
         alerts = data.get("alerts", [])
-        st.caption(f"{len(alerts)} alert(s) found")
+        st.markdown(f"""
+        <div style='font-family: JetBrains Mono, monospace; font-size: 0.65rem;
+                    color: {T["--text-dim"]}; letter-spacing: 0.1em; margin-bottom: 1rem;'>
+            {len(alerts)} ALERT(S) FOUND
+        </div>
+        """, unsafe_allow_html=True)
+
+        P_COLORS = {
+            "P1": T["--red"], "P2": T["--orange"],
+            "P3": T["--yellow"], "P4": T["--green"],
+        }
+        P_LABELS = {"P1": "CRITICAL", "P2": "HIGH", "P3": "MEDIUM", "P4": "LOW"}
+        S_ICONS = {
+            "open": "●", "in_progress": "◑",
+            "resolved": "✓", "false_positive": "✕",
+        }
 
         if not alerts:
-            st.info("No alerts found.")
-            return
+            st.markdown(f"""
+            <div style='background: {T["--bg-card"]}; border: 1px solid {T["--border"]};
+                        border-radius: 8px; padding: 2rem; text-align: center;
+                        font-family: JetBrains Mono, monospace; font-size: 0.8rem;
+                        color: {T["--text-dim"]};'>NO ALERTS FOUND</div>
+            """, unsafe_allow_html=True)
+        else:
+            for alert in reversed(alerts):
+                priority = alert.get("priority", "P3")
+                status = alert.get("status", "open")
+                p_color = P_COLORS.get(priority, T["--text-dim"])
+                p_label = P_LABELS.get(priority, priority)
+                s_icon = S_ICONS.get(status, "?")
 
-        for alert in reversed(alerts):
-            priority = alert.get("priority", "P3")
-            status = alert.get("status", "open")
-            icon = PRIORITY_COLORS.get(priority, "⚪")
-            status_icon = STATUS_COLORS.get(status, "❓")
+                with st.expander(f"[{p_label}]  {alert['title']}"):
+                    st.markdown(f"""
+                    <div style='display: flex; gap: 0.6rem; margin-bottom: 1rem;
+                                flex-wrap: wrap; align-items: center;'>
+                        <span style='background: {p_color}22; border: 1px solid {p_color}55;
+                                     border-radius: 4px; padding: 0.2rem 0.6rem;
+                                     font-family: JetBrains Mono, monospace; font-size: 0.65rem;
+                                     color: {p_color}; letter-spacing: 0.08em;'>
+                            {priority} · {p_label}
+                        </span>
+                        <span style='background: {T["--tag-bg"]}; border: 1px solid {T["--border"]};
+                                     border-radius: 4px; padding: 0.2rem 0.6rem;
+                                     font-family: JetBrains Mono, monospace; font-size: 0.65rem;
+                                     color: {T["--text-secondary"]}; letter-spacing: 0.08em;'>
+                            {s_icon} {status.upper()}
+                        </span>
+                        <span style='background: {T["--cyan-dim"]}; border: 1px solid {T["--cyan"]}44;
+                                     border-radius: 4px; padding: 0.2rem 0.6rem;
+                                     font-family: JetBrains Mono, monospace; font-size: 0.65rem;
+                                     color: {T["--cyan"]}; letter-spacing: 0.08em;'>
+                            {alert.get("threat_id")}
+                        </span>
+                    </div>
+                    <div style='font-family: Inter, sans-serif; font-size: 0.88rem;
+                                color: {T["--text-secondary"]}; margin-bottom: 1rem;
+                                line-height: 1.6;'>
+                        {alert.get("description", "")}
+                    </div>
+                    """, unsafe_allow_html=True)
 
-            with st.expander(f"{icon} [{priority}] {alert['title']} — {status_icon} {status}"):
-                st.markdown(f"**Threat ID:** `{alert.get('threat_id')}`")
-                st.markdown(f"**Description:** {alert.get('description')}")
+                    if alert.get("indicators"):
+                        st.markdown(f"""
+                        <div style='font-family: JetBrains Mono, monospace; font-size: 0.65rem;
+                                    color: {T["--text-dim"]}; letter-spacing: 0.1em;
+                                    margin-bottom: 0.5rem;'>INDICATORS OF COMPROMISE</div>
+                        """, unsafe_allow_html=True)
+                        for ioc in alert["indicators"]:
+                            st.markdown(f"""
+                            <div style='background: {T["--input-bg"]}; border: 1px solid {T["--border"]};
+                                        border-left: 2px solid {T["--orange"]}; border-radius: 4px;
+                                        padding: 0.3rem 0.7rem; margin-bottom: 0.3rem;
+                                        font-family: JetBrains Mono, monospace; font-size: 0.75rem;
+                                        color: {T["--orange"]};'>{ioc}</div>
+                            """, unsafe_allow_html=True)
 
-                if alert.get("indicators"):
-                    st.markdown("**Indicators:**")
-                    for ioc in alert["indicators"]:
-                        st.code(ioc)
-
-                col_a, col_b, col_c = st.columns(3)
-
-                with col_a:
-                    if st.button("AI Triage", key=f"triage_{alert['id']}"):
-                        with st.spinner("Analyzing..."):
-                            result = triage_alert(alert["id"])
-                        if "error" not in result:
-                            st.markdown(f"**Recommendation:** {result.get('priority_recommendation')}")
-                            st.markdown(result.get("reasoning", ""))
-                        else:
-                            st.error(result["error"])
-
-                with col_b:
-                    new_status = st.selectbox(
-                        "Update status",
-                        ["open", "in_progress", "resolved", "false_positive"],
-                        key=f"status_{alert['id']}",
-                    )
-
-                with col_c:
-                    if st.button("Update", key=f"update_{alert['id']}"):
-                        update_status(alert["id"], new_status)
-                        st.success("Status updated")
-                        st.rerun()
+                    col_a, col_b, col_c = st.columns(3)
+                    with col_a:
+                        if st.button("⟶ AI TRIAGE", key=f"triage_{alert['id']}"):
+                            with st.spinner("Analyzing..."):
+                                result = triage_alert(alert["id"])
+                            if "error" not in result:
+                                st.markdown(f"""
+                                <div style='background: {T["--bg-card"]};
+                                            border: 1px solid {T["--cyan"]}44;
+                                            border-left: 3px solid {T["--cyan"]};
+                                            border-radius: 6px; padding: 1rem;
+                                            margin-top: 0.5rem; font-family: Inter, sans-serif;
+                                            font-size: 0.85rem; color: {T["--text-primary"]};
+                                            line-height: 1.6;'>
+                                    {result.get("reasoning", "")}
+                                </div>
+                                """, unsafe_allow_html=True)
+                            else:
+                                st.error(result["error"])
+                    with col_b:
+                        new_status = st.selectbox(
+                            "UPDATE STATUS",
+                            ["open", "in_progress", "resolved", "false_positive"],
+                            key=f"status_{alert['id']}",
+                        )
+                    with col_c:
+                        st.markdown("<div style='margin-top: 1.8rem;'></div>",
+                                    unsafe_allow_html=True)
+                        if st.button("UPDATE", key=f"update_{alert['id']}"):
+                            update_status(alert["id"], new_status)
+                            st.rerun()
 
     with tab_create:
-        st.subheader("Create New Alert")
+        st.markdown(f"""
+        <div style='font-family: Rajdhani, sans-serif; font-size: 1.1rem; font-weight: 600;
+                    color: {T["--text-secondary"]}; letter-spacing: 0.1em;
+                    text-transform: uppercase; margin-bottom: 1.5rem;'>
+            CREATE SECURITY ALERT
+        </div>
+        """, unsafe_allow_html=True)
 
-        with st.form("create_alert_form"):
-            threat_id = st.text_input("Threat ID", placeholder="T1059.001")
-            title = st.text_input("Title", placeholder="Suspicious PowerShell execution detected")
-            description = st.text_area("Description", height=100)
-            priority = st.selectbox("Priority", ["P1", "P2", "P3", "P4"])
-            source_ip = st.text_input("Source IP (optional)")
-            target_asset = st.text_input("Target Asset (optional)")
-            indicators = st.text_area("Indicators (one per line)", height=80)
-            submitted = st.form_submit_button("Create Alert")
+        threat_id = st.text_input("THREAT ID", placeholder="T1059.001",
+                                   key="new_threat_id")
+        title = st.text_input("TITLE",
+                               placeholder="Suspicious PowerShell execution detected",
+                               key="new_title")
+        description = st.text_area("DESCRIPTION", height=100, key="new_description")
+        priority = st.selectbox("PRIORITY", ["P1", "P2", "P3", "P4"],
+                                 key="new_priority")
+        source_ip = st.text_input("SOURCE IP (optional)", key="new_source_ip")
+        target_asset = st.text_input("TARGET ASSET (optional)", key="new_target_asset")
+        indicators = st.text_area("INDICATORS — one per line", height=80,
+                                   key="new_indicators")
 
-        if submitted:
+        if st.button("⟶ CREATE ALERT", type="primary"):
             if not all([threat_id, title, description]):
-                st.warning("Threat ID, title, and description are required.")
+                st.markdown(f"""
+                <div style='background: {T["--warn-bg"]}; border: 1px solid {T["--warn-border"]};
+                            border-left: 3px solid {T["--yellow"]}; border-radius: 6px;
+                            padding: 0.8rem 1rem; font-family: JetBrains Mono, monospace;
+                            font-size: 0.75rem; color: {T["--yellow"]};'>
+                    ⚠ THREAT ID, TITLE, AND DESCRIPTION REQUIRED
+                </div>
+                """, unsafe_allow_html=True)
             else:
                 payload = {
                     "threat_id": threat_id,
@@ -134,10 +231,19 @@ def render():
                     "priority": priority,
                     "source_ip": source_ip or None,
                     "target_asset": target_asset or None,
-                    "indicators": [i.strip() for i in indicators.splitlines() if i.strip()],
+                    "indicators": [i.strip() for i in
+                                   indicators.splitlines() if i.strip()],
                 }
                 result = create_alert(payload)
                 if "error" not in result:
-                    st.success(f"Alert #{result.get('id')} created successfully.")
+                    st.markdown(f"""
+                    <div style='background: {T["--success-bg"]};
+                                border: 1px solid {T["--success-border"]};
+                                border-left: 3px solid {T["--green"]}; border-radius: 6px;
+                                padding: 0.8rem 1rem; font-family: JetBrains Mono, monospace;
+                                font-size: 0.75rem; color: {T["--green"]};'>
+                        ✓ ALERT #{result.get("id")} CREATED SUCCESSFULLY
+                    </div>
+                    """, unsafe_allow_html=True)
                 else:
                     st.error(result["error"])
