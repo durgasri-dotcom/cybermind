@@ -1,6 +1,7 @@
-import streamlit as st
-import plotly.graph_objects as go
 import httpx
+import plotly.graph_objects as go
+import streamlit as st
+
 from configs.settings import settings
 
 BACKEND = f"http://127.0.0.1:{settings.api_port}{settings.api_prefix}"
@@ -130,10 +131,10 @@ def render(T: dict):
             if filtered:
                 labels = list(filtered.keys())
                 values = list(filtered.values())
-                colors = [SEV_COLORS.get(l, T["--text-dim"]) for l in labels]
+                colors = [SEV_COLORS.get(sev, T["--text-dim"]) for sev in labels]
 
                 fig = go.Figure(go.Pie(
-                    labels=[l.upper() for l in labels],
+                    labels=[sev.upper() for sev in labels],
                     values=values,
                     marker=dict(
                         colors=colors,

@@ -1,9 +1,11 @@
 from __future__ import annotations
-from datetime import datetime, timezone
+
+from datetime import UTC, datetime
+
 from fastapi import APIRouter, HTTPException, Query
+
 from configs.logging_config import get_logger
-from configs.settings import settings
-from src.backend.models.threat import ThreatCreate, ThreatRead, SeverityLevel
+from src.backend.models.threat import SeverityLevel, ThreatCreate, ThreatRead
 from src.backend.services.threat_scoring import score_to_severity
 
 logger = get_logger(__name__)
@@ -20,7 +22,7 @@ def load_threats_from_gold() -> None:
     p = Path("data/gold/mitre_threats_enriched.json")
     if not p.exists():
         return
-    with open(p, "r", encoding="utf-8") as f:
+    with open(p, encoding="utf-8") as f:
         data = json.load(f)
     for item in data:
         _counter += 1
@@ -58,7 +60,7 @@ async def create_threat(body: ThreatCreate):
         **body.model_dump(),
         "id": _counter,
         "severity": score_to_severity(body.risk_score).value,
-        "ingested_at": datetime.now(timezone.utc),
+        "ingested_at": datetime.now(UTC),
         "embedding_id": None,
     }
     _threats[_counter] = threat

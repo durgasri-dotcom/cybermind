@@ -1,8 +1,10 @@
 from __future__ import annotations
+
 import json
 from pathlib import Path
-from configs.settings import settings
+
 from configs.logging_config import get_logger
+from configs.settings import settings
 from src.backend.services.mitre_loader import load_normalized as load_mitre
 from src.backend.services.threat_scoring import bulk_score
 
@@ -14,7 +16,7 @@ def load_cve_normalized() -> list[dict]:
     if not p.exists():
         logger.warning("cve_normalized_not_found", path=str(p))
         return []
-    with open(p, "r", encoding="utf-8") as f:
+    with open(p, encoding="utf-8") as f:
         return json.load(f)
 
 

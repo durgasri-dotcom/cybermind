@@ -1,10 +1,13 @@
 from __future__ import annotations
+
 import time
-import numpy as np
 from functools import lru_cache
+
+import numpy as np
 from sentence_transformers import SentenceTransformer
-from configs.settings import settings
+
 from configs.logging_config import get_logger
+from configs.settings import settings
 
 logger = get_logger(__name__)
 

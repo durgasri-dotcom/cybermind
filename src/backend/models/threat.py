@@ -1,7 +1,8 @@
 from __future__ import annotations
+
 from datetime import datetime
 from enum import Enum
-from typing import Optional
+
 from pydantic import BaseModel, Field
 
 
@@ -50,7 +51,7 @@ class ThreatCreate(ThreatBase):
 class ThreatRead(ThreatBase):
     id: int
     ingested_at: datetime
-    embedding_id: Optional[str] = None
+    embedding_id: str | None = None
 
     model_config = {"from_attributes": True}
 

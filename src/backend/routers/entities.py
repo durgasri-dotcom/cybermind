@@ -1,9 +1,18 @@
 from __future__ import annotations
-from datetime import datetime, timezone
+
+from datetime import UTC, datetime
+
 from fastapi import APIRouter, Depends, HTTPException
+
 from configs.logging_config import get_logger
 from configs.settings import settings
-from src.backend.models.entity import EntityBase, EntityRead, EntityEnrichRequest, EntityEnrichResponse, EntityRelationship
+from src.backend.models.entity import (
+    EntityBase,
+    EntityEnrichRequest,
+    EntityEnrichResponse,
+    EntityRead,
+    EntityRelationship,
+)
 from src.backend.services.llm_service import LLMService, get_llm_service
 
 logger = get_logger(__name__)
@@ -34,7 +43,7 @@ async def create_entity(body: EntityBase):
     entity = {
         **body.model_dump(),
         "id": len(_entities) + 1,
-        "ingested_at": datetime.now(timezone.utc),
+        "ingested_at": datetime.now(UTC),
         "risk_score": 0.0,
         "relationships": [],
     }

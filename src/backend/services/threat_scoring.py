@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 from configs.settings import settings
 from src.backend.models.threat import SeverityLevel
 

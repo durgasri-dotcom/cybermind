@@ -1,10 +1,14 @@
 from __future__ import annotations
+
 import json
 import time
-import httpx
+from datetime import UTC
 from pathlib import Path
-from configs.settings import settings
+
+import httpx
+
 from configs.logging_config import get_logger
+from configs.settings import settings
 
 logger = get_logger(__name__)
 
@@ -13,9 +17,9 @@ MAX_PAGES = 5
 
 
 def fetch_recent_cves(days_back: int = 30) -> list[dict]:
-    from datetime import datetime, timedelta, timezone
+    from datetime import datetime, timedelta
 
-    end = datetime.now(timezone.utc)
+    end = datetime.now(UTC)
     start = end - timedelta(days=days_back)
 
     pub_start = start.strftime("%Y-%m-%dT%H:%M:%S.000")

@@ -1,9 +1,12 @@
 from __future__ import annotations
-from datetime import datetime, timezone
+
+from datetime import UTC, datetime
+
 from fastapi import APIRouter, Depends, HTTPException
+
 from configs.logging_config import get_logger
 from configs.settings import settings
-from src.backend.models.alert import AlertCreate, AlertRead, AlertStatus, AlertTriage, AlertPriority
+from src.backend.models.alert import AlertCreate, AlertPriority, AlertRead, AlertStatus, AlertTriage
 from src.backend.services.llm_service import LLMService, get_llm_service
 
 logger = get_logger(__name__)
@@ -28,7 +31,7 @@ async def create_alert(body: AlertCreate):
     alert = {
         **body.model_dump(),
         "id": _counter,
-        "triggered_at": datetime.now(timezone.utc),
+        "triggered_at": datetime.now(UTC),
         "resolved_at": None,
         "assigned_to": None,
         "playbook_id": None,
@@ -79,7 +82,7 @@ async def update_alert_status(alert_id: int, status: AlertStatus):
         raise HTTPException(status_code=404, detail=f"Alert {alert_id} not found")
     _alerts[alert_id]["status"] = status
     if status == AlertStatus.RESOLVED:
-        _alerts[alert_id]["resolved_at"] = datetime.now(timezone.utc)
+        _alerts[alert_id]["resolved_at"] = datetime.now(UTC)
     logger.info("alert_status_updated", alert_id=alert_id, status=status)
     return {"alert_id": alert_id, "status": status}
 

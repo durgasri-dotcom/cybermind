@@ -1,7 +1,8 @@
 from __future__ import annotations
+
 from datetime import datetime
 from enum import Enum
-from typing import Optional
+
 from pydantic import BaseModel, Field
 
 
@@ -25,8 +26,8 @@ class AlertBase(BaseModel):
     description: str
     priority: AlertPriority = AlertPriority.P3
     status: AlertStatus = AlertStatus.OPEN
-    source_ip: Optional[str] = None
-    target_asset: Optional[str] = None
+    source_ip: str | None = None
+    target_asset: str | None = None
     indicators: list[str] = Field(default_factory=list)
 
 
@@ -37,9 +38,9 @@ class AlertCreate(AlertBase):
 class AlertRead(AlertBase):
     id: int
     triggered_at: datetime
-    resolved_at: Optional[datetime] = None
-    assigned_to: Optional[str] = None
-    playbook_id: Optional[int] = None
+    resolved_at: datetime | None = None
+    assigned_to: str | None = None
+    playbook_id: int | None = None
 
     model_config = {"from_attributes": True}
 

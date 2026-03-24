@@ -1,6 +1,9 @@
 from __future__ import annotations
-from datetime import datetime, timezone
+
+from datetime import UTC, datetime
+
 from fastapi import APIRouter, Request
+
 from configs.settings import settings
 
 router = APIRouter()
@@ -13,7 +16,7 @@ async def health_check(request: Request):
         "status": "healthy",
         "platform": settings.app_name,
         "version": settings.app_version,
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
         "services": {
             "rag": {
                 "ready": rag_svc.is_ready if rag_svc else False,

@@ -1,11 +1,14 @@
 from __future__ import annotations
+
 import time
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
-from configs.settings import settings
+
 from configs.logging_config import get_logger
-from src.backend.services.rag_service import RAGService, get_rag_service
+from configs.settings import settings
 from src.backend.services.llm_service import LLMService, get_llm_service
+from src.backend.services.rag_service import RAGService, get_rag_service
 
 logger = get_logger(__name__)
 router = APIRouter()

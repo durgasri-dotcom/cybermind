@@ -1,8 +1,10 @@
 from __future__ import annotations
+
 import json
 from pathlib import Path
-from configs.settings import settings
+
 from configs.logging_config import get_logger
+from configs.settings import settings
 
 logger = get_logger(__name__)
 
@@ -26,7 +28,7 @@ def load_raw(path: str | None = None) -> dict:
     p = Path(path or settings.mitre_bronze_path)
     if not p.exists():
         raise FileNotFoundError(f"MITRE raw data not found at {p}. Run ingest_mitre.py first.")
-    with open(p, "r", encoding="utf-8") as f:
+    with open(p, encoding="utf-8") as f:
         return json.load(f)
 
 
@@ -83,7 +85,7 @@ def load_normalized(path: str | None = None) -> list[dict]:
     p = Path(path or settings.mitre_silver_path)
     if not p.exists():
         raise FileNotFoundError(f"Normalized data not found at {p}. Run transform_threats.py first.")
-    with open(p, "r", encoding="utf-8") as f:
+    with open(p, encoding="utf-8") as f:
         return json.load(f)
 
 

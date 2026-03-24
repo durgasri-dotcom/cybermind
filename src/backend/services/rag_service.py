@@ -1,24 +1,24 @@
 from __future__ import annotations
+
 import json
 import time
 from pathlib import Path
-from typing import Optional
 
 import faiss
 import numpy as np
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 
-from configs.settings import settings
 from configs.logging_config import get_logger
+from configs.settings import settings
 from src.backend.services.embedding_service import EmbeddingService, get_embedding_service
 
 logger = get_logger(__name__)
 
 
 class RAGService:
-    def __init__(self, embedding_svc: Optional[EmbeddingService] = None) -> None:
+    def __init__(self, embedding_svc: EmbeddingService | None = None) -> None:
         self._embedding_svc = embedding_svc or get_embedding_service()
-        self._index: Optional[faiss.IndexFlatIP] = None
+        self._index: faiss.IndexFlatIP | None = None
         self._chunks: list[str] = []
         self._metadata: list[dict] = []
         self._is_loaded = False
@@ -48,7 +48,7 @@ class RAGService:
         self._index = faiss.read_index(str(index_path))
 
         if chunks_path.exists():
-            with open(chunks_path, "r", encoding="utf-8") as f:
+            with open(chunks_path, encoding="utf-8") as f:
                 data = json.load(f)
                 self._chunks = data.get("chunks", [])
                 self._metadata = data.get("metadata", [])
@@ -113,7 +113,7 @@ class RAGService:
 
         logger.info("faiss_index_saved", num_vectors=self._index.ntotal)
 
-    def retrieve(self, query: str, top_k: Optional[int] = None) -> list[dict]:
+    def retrieve(self, query: str, top_k: int | None = None) -> list[dict]:
         k = top_k or settings.rag_top_k
 
         if not self._is_loaded or self._index is None or self._index.ntotal == 0:
@@ -133,7 +133,7 @@ class RAGService:
             })
         return results
 
-    def retrieve_chunks(self, query: str, top_k: Optional[int] = None) -> list[str]:
+    def retrieve_chunks(self, query: str, top_k: int | None = None) -> list[str]:
         return [r["chunk"] for r in self.retrieve(query, top_k)]
 
     @property
@@ -145,7 +145,7 @@ class RAGService:
         return self._index.ntotal if self._index else 0
 
 
-_rag_instance: Optional[RAGService] = None
+_rag_instance: RAGService | None = None
 
 
 def get_rag_service() -> RAGService:

@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 import time
 from contextlib import asynccontextmanager
 
@@ -6,12 +7,12 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from configs.settings import settings
 from configs.logging_config import configure_logging, get_logger
-from src.backend.services.rag_service import get_rag_service
-from src.backend.services.llm_service import get_llm_service
+from configs.settings import settings
+from src.backend.routers import alerts, entities, health, intel, playbooks, threats
 from src.backend.services.embedding_service import get_embedding_service
-from src.backend.routers import threats, intel, alerts, playbooks, entities, health
+from src.backend.services.llm_service import get_llm_service
+from src.backend.services.rag_service import get_rag_service
 
 configure_logging()
 logger = get_logger(__name__)

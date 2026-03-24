@@ -281,7 +281,7 @@ hr {{ border-color: var(--border) !important; }}
 st.markdown(get_css(DARK if st.session_state.theme == "dark" else LIGHT),
             unsafe_allow_html=True)
 
-from src.dashboard.tabs import overview, threat_intel, alerts, playbooks, entity_graph
+from src.dashboard.tabs import alerts, entity_graph, overview, playbooks, threat_intel
 
 TABS = {
     "Overview": ("🛡️", overview),

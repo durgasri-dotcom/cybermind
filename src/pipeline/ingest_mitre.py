@@ -1,9 +1,12 @@
 from __future__ import annotations
+
 import json
-import httpx
 from pathlib import Path
-from configs.settings import settings
+
+import httpx
+
 from configs.logging_config import get_logger
+from configs.settings import settings
 
 logger = get_logger(__name__)
 

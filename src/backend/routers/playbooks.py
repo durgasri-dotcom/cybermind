@@ -1,11 +1,18 @@
 from __future__ import annotations
+
 import re
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
+
 from fastapi import APIRouter, Depends, HTTPException
+
 from configs.logging_config import get_logger
-from configs.settings import settings
-from src.backend.models.playbook import PlaybookGenerateRequest, PlaybookRead, PlaybookStep, PlaybookStatus
+from src.backend.models.playbook import (
+    PlaybookGenerateRequest,
+    PlaybookRead,
+    PlaybookStatus,
+    PlaybookStep,
+)
 from src.backend.services.llm_service import LLMService, get_llm_service
 from src.backend.services.rag_service import RAGService, get_rag_service
 
@@ -68,7 +75,7 @@ async def generate_playbook(
         "steps": [s.model_dump() for s in steps],
         "status": PlaybookStatus.ACTIVE,
         "tags": ["auto-generated", body.threat_id],
-        "generated_at": datetime.now(timezone.utc),
+        "generated_at": datetime.now(UTC),
         "generated_by": "CyberMind",
         "version": 1,
     }

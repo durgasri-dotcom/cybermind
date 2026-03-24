@@ -1,9 +1,11 @@
 from __future__ import annotations
+
 import time
-from typing import Optional
+
 from groq import Groq
-from configs.settings import settings
+
 from configs.logging_config import get_logger
+from configs.settings import settings
 
 logger = get_logger(__name__)
 
@@ -28,7 +30,7 @@ class LLMService:
         self._max_tokens = settings.llm_max_tokens
         logger.info("llm_service_ready", model=self._model)
 
-    def _call(self, user_prompt: str, max_tokens: Optional[int] = None) -> tuple[str, float]:
+    def _call(self, user_prompt: str, max_tokens: int | None = None) -> tuple[str, float]:
         start = time.perf_counter()
         try:
             response = self._client.chat.completions.create(
