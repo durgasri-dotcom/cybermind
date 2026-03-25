@@ -1,6 +1,17 @@
+import os
 from functools import lru_cache
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+def _load_streamlit_secrets() -> None:
+    try:
+        import streamlit as st
+        for key, value in st.secrets.items():
+            if isinstance(value, str):
+                os.environ.setdefault(key.upper(), value)
+    except Exception:
+        pass
 
 
 class Settings(BaseSettings):
@@ -60,6 +71,7 @@ class Settings(BaseSettings):
 
 @lru_cache
 def get_settings() -> Settings:
+    _load_streamlit_secrets()
     return Settings()
 
 
