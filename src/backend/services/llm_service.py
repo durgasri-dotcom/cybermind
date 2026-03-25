@@ -23,9 +23,16 @@ When analyzing threats or generating playbooks:
 
 class LLMService:
     def __init__(self) -> None:
-        if not settings.groq_api_key:
+        api_key = settings.groq_api_key
+        if not api_key:
+            try:
+                import streamlit as st
+                api_key = st.secrets.get("GROQ_API_KEY", "")
+            except Exception:
+                pass
+        if not api_key:
             logger.warning("groq_api_key_not_set")
-        self._client = Groq(api_key=settings.groq_api_key)
+        self._client = Groq(api_key=api_key)
         self._model = settings.llm_model
         self._max_tokens = settings.llm_max_tokens
         logger.info("llm_service_ready", model=self._model)
