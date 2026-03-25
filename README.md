@@ -1,27 +1,35 @@
-# CyberMind — AI-Powered Threat Intelligence Platform
+# ⬡ CyberMind — AI-Powered Threat Intelligence Platform
 
-CyberMind is a production-grade threat intelligence platform that combines RAG (Retrieval-Augmented Generation), vector search, and LLM-powered analysis to help security teams understand, triage, and respond to cyber threats.
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-cybermindai.streamlit.app-00d4ff?style=flat-square&logo=streamlit)](https://cybermindai.streamlit.app)
+[![CI](https://img.shields.io/github/actions/workflow/status/durgasri-dotcom/cybermind/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/durgasri-dotcom/cybermind/actions)
+[![Python](https://img.shields.io/badge/Python-3.11-blue?style=flat-square&logo=python)](https://python.org)
+[![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
+[![Tests](https://img.shields.io/badge/Tests-45%20passed-00ff88?style=flat-square)](https://github.com/durgasri-dotcom/cybermind/actions)
 
-Built on MITRE ATT&CK and NVD CVE data, CyberMind indexes 691 real attack techniques into a FAISS vector store and exposes them through a FastAPI backend and interactive Streamlit dashboard.
+CyberMind is a production-grade AI threat intelligence platform that combines RAG (Retrieval-Augmented Generation), FAISS vector search, and LLM-powered analysis to help security teams understand, triage, and respond to cyber threats in real time.
+
+Built on 691 real MITRE ATT&CK techniques indexed into a FAISS vector store, CyberMind answers natural language security queries, generates structured incident response playbooks, and visualizes threat actor relationships all powered by LLaMA 3.3 70B via Groq.
+
+---
+
+## Live Demo
+
+**[cybermindai.streamlit.app](https://cybermindai.streamlit.app)**
 
 ---
 
 ## Architecture
 
-```
-MITRE ATT&CK + NVD CVE
-        ↓
-  Bronze → Silver → Gold   (medallion data pipeline)
-        ↓
-  FAISS Vector Store        (2,374 embedded chunks)
-        ↓
-  RAG Pipeline              (LangChain + all-MiniLM-L6-v2)
-        ↓
-  LLM Analysis              (Groq + LLaMA 3.1 70B)
-        ↓
-  FastAPI Backend           (6 endpoint groups)
-        ↓
-  Streamlit Dashboard       (5 tabs)
+```mermaid
+flowchart TD
+    A[MITRE ATT&CK JSON\nNVD CVE Feed] --> B[Bronze Layer\nRaw Ingestion]
+    B --> C[Silver Layer\nNormalization + Dedup]
+    C --> D[Gold Layer\nRisk Scoring + Enrichment]
+    D --> E[FAISS Vector Store\n2374 Chunks · all-MiniLM-L6-v2]
+    E --> F[RAG Pipeline\nLangChain + Semantic Retrieval]
+    F --> G[LLM Analysis\nGroq · LLaMA 3.3 70B]
+    G --> H[FastAPI Backend\n6 Endpoint Groups]
+    H --> I[Streamlit Dashboard\n5 Tabs · Dark/Light Theme]
 ```
 
 ---
@@ -30,32 +38,32 @@ MITRE ATT&CK + NVD CVE
 
 | Layer          | Technology                                       |
 | -------------- | ------------------------------------------------ |
-| LLM            | Groq API + LLaMA 3.1 70B Versatile               |
-| RAG            | LangChain + FAISS + HuggingFace all-MiniLM-L6-v2 |
-| Backend        | FastAPI + Pydantic + Uvicorn                     |
-| Dashboard      | Streamlit + Plotly                               |
-| Data           | MITRE ATT&CK (691 techniques) + NVD CVE          |
-| Infrastructure | Docker + GitHub Actions CI/CD                    |
-| Testing        | pytest (45 tests)                                |
+| LLM            | Groq API · LLaMA 3.3 70B Versatile               |
+| RAG            | LangChain · FAISS · HuggingFace all-MiniLM-L6-v2 |
+| Backend        | FastAPI · Pydantic v2 · Uvicorn                  |
+| Dashboard      | Streamlit · Plotly                               |
+| Data           | MITRE ATT&CK (691 techniques) · NVD CVE          |
+| Infrastructure | Docker · GitHub Actions CI/CD                    |
+| Testing        | pytest · 45 tests                                |
 
 ---
 
 ## Features
 
-**Threat Intelligence Q&A**
-Natural language queries answered using RAG over real MITRE ATT&CK data. Ask about specific techniques, threat actors, or attack patterns and get structured analyst-grade responses.
+**RAG-Powered Threat Intelligence Q&A**
+Ask anything about MITRE ATT&CK techniques, threat actors, or CVEs in natural language. CyberMind embeds your query, retrieves the top-K semantically similar chunks from the FAISS index, and generates a structured analyst-grade response using LLaMA 3.3.
 
-**AI-Generated Playbooks**
-Submit a MITRE technique ID and CyberMind generates a structured incident response playbook with steps, responsible teams, tools, and time estimates.
+**AI-Generated Incident Response Playbooks**
+Submit any MITRE technique ID and CyberMind generates a structured incident response playbook with containment, eradication, and recovery steps including responsible teams, tools, and time estimates.
 
-**Alert Triage**
-Create security alerts and trigger AI-assisted triage priority recommendation, reasoning, and immediate actions generated by LLaMA 3.1.
+**AI-Assisted Alert Triage**
+Create security alerts and trigger AI triage priority recommendation (P1–P4), reasoning, immediate actions, and escalation decision generated by LLaMA 3.3.
 
-**Entity Graph**
-Visualize threat actors, malware families, and tools with relationship mapping. Enrich any entity with an AI-generated threat profile.
+**Entity Graph & Threat Actor Profiles**
+Add threat actors, malware families, and tools. Visualize entity relationships on an interactive graph. Enrich any entity with an AI-generated threat profile covering TTPs, targeting patterns, and detection recommendations.
 
 **Medallion Data Pipeline**
-Bronze → Silver → Gold architecture ingests raw MITRE ATT&CK JSON, normalizes and scores threats, and produces embedding-ready documents for the vector store.
+Bronze → Silver → Gold architecture ingests raw MITRE ATT&CK JSON and NVD CVE feeds, normalizes and scores threats, and produces embedding-ready documents for the vector store. Runs on a daily GitHub Actions schedule.
 
 ---
 
@@ -63,25 +71,27 @@ Bronze → Silver → Gold architecture ingests raw MITRE ATT&CK JSON, normalize
 
 ```
 cybermind/
-├── configs/              # Pydantic BaseSettings, structured logging
+├── configs/                  # Pydantic BaseSettings, structured logging
 ├── src/
 │   ├── backend/
-│   │   ├── models/       # Pydantic schemas (threat, alert, playbook, entity)
-│   │   ├── routers/      # FastAPI routers (threats, intel, alerts, playbooks, entities, health)
-│   │   ├── services/     # RAG, LLM, embeddings, threat scoring, MITRE loader
-│   │   └── main.py       # FastAPI app with lifespan, middleware, CORS
-│   ├── pipeline/         # MITRE ingest, CVE ingest, transform, vector store build
-│   └── dashboard/        # Streamlit app + 5 tabs
+│   │   ├── models/           # Pydantic schemas (threat, alert, playbook, entity)
+│   │   ├── routers/          # FastAPI routers (threats, intel, alerts, playbooks, entities, health)
+│   │   ├── services/         # RAG, LLM, embeddings, threat scoring, MITRE loader
+│   │   └── main.py           # FastAPI app with lifespan, middleware, CORS
+│   ├── pipeline/             # MITRE ingest, CVE ingest, transform, vector store build
+│   └── dashboard/            # Streamlit multi-tab dashboard
 ├── data/
-│   ├── bronze/           # raw MITRE ATT&CK JSON
-│   ├── silver/           # normalized threat records
-│   └── gold/             # scored, embedded, FAISS index
-└── tests/                # 45 tests across pipeline, RAG, playbooks, scoring
+│   ├── bronze/               # Raw MITRE ATT&CK JSON
+│   ├── silver/               # Normalized threat records
+│   └── gold/                 # Scored, embedded, FAISS index
+├── tests/                    # 45 tests across pipeline, RAG, playbooks, scoring
+├── streamlit_app.py          # Standalone Streamlit Cloud entry point
+└── .github/workflows/        # CI/CD + scheduled data pipeline
 ```
 
 ---
 
-## Getting Started
+## Quick Start
 
 **1. Clone and install:**
 
@@ -96,13 +106,14 @@ pip install -r requirements.txt
 ```bash
 cp .env.example .env
 # Add your GROQ_API_KEY to .env
+# Get a free key at console.groq.com
 ```
 
 **3. Run the data pipeline:**
 
 ```bash
 python -m src.pipeline.ingest_mitre
-python -m src.backend.services.mitre_loader  # normalize
+python -c "from src.backend.services.mitre_loader import load_raw, parse_techniques, save_normalized; save_normalized(parse_techniques(load_raw()))"
 python -m src.pipeline.transform_threats
 python -m src.pipeline.build_vector_store
 ```
@@ -119,7 +130,7 @@ uvicorn src.backend.main:app --reload
 streamlit run src/dashboard/app.py
 ```
 
-**6. Run with Docker:**
+**Or run with Docker:**
 
 ```bash
 docker-compose up --build
@@ -127,7 +138,7 @@ docker-compose up --build
 
 ---
 
-## API Endpoints
+## API Reference
 
 | Method | Endpoint                     | Description                                    |
 | ------ | ---------------------------- | ---------------------------------------------- |
@@ -135,12 +146,32 @@ docker-compose up --build
 | POST   | `/api/v1/intel/similar`      | Semantic similarity search over threat vectors |
 | GET    | `/api/v1/intel/status`       | Vector store status                            |
 | GET    | `/api/v1/threats`            | List and filter threat records                 |
+| POST   | `/api/v1/threats`            | Create threat record                           |
 | POST   | `/api/v1/playbooks/generate` | Generate AI incident response playbook         |
+| GET    | `/api/v1/playbooks`          | List saved playbooks                           |
+| POST   | `/api/v1/alerts`             | Create security alert                          |
 | POST   | `/api/v1/alerts/{id}/triage` | AI-assisted alert triage                       |
 | POST   | `/api/v1/entities/enrich`    | LLM-generated entity threat profile            |
 | GET    | `/api/v1/health`             | Platform health and service status             |
 
 Full interactive docs at `/docs` when the backend is running.
+
+---
+
+## Data Pipeline
+
+```
+MITRE ATT&CK Enterprise JSON  ──►  Bronze (raw)
+NVD CVE REST API              ──►  Bronze (raw)
+                                        │
+                                   Silver (normalized, deduped)
+                                        │
+                                   Gold (scored, enriched)
+                                        │
+                                   FAISS Index (2,374 vectors)
+```
+
+Runs automatically every day at 06:00 UTC via GitHub Actions. Can be triggered manually from the Actions tab.
 
 ---
 
@@ -155,7 +186,26 @@ Covers threat scoring, RAG retrieval, playbook parsing, and the full MITRE data 
 
 ---
 
+## Deployment
+
+**Streamlit Cloud (Dashboard):**
+The standalone dashboard is deployed at [cybermindai.streamlit.app](https://cybermindai.streamlit.app) no backend required, services are called directly.
+
+**Docker (Full Stack):**
+
+```bash
+docker-compose up --build
+# Backend:   http://localhost:8000
+# Dashboard: http://localhost:8501
+```
+
+---
+
 ## Data Sources
 
 - [MITRE ATT&CK Enterprise](https://attack.mitre.org/) — 691 techniques and sub-techniques
 - [NVD CVE Feed](https://nvd.nist.gov/developers/vulnerabilities) — recent CVE ingestion via REST API
+
+---
+
+_Built by Sri Durga Abhigna Tanguturi .._
