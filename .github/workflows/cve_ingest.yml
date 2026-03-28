@@ -1,0 +1,66 @@
+name: Scheduled CVE Ingest
+
+on:
+  schedule:
+    - cron: "0 6 * * *" # daily at 06:00 UTC
+  workflow_dispatch: # allow manual trigger from GitHub UI
+
+jobs:
+  ingest:
+    name: Ingest CVEs from NVD
+    runs-on: ubuntu-latest
+    env:
+      PYTHONPATH: .
+      DATABASE_URL: sqlite:///./cybermind.db
+      CYBERMIND_API_KEY: ${{ secrets.CYBERMIND_API_KEY }}
+      NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Initialize database
+        run: alembic upgrade head
+
+      - name: Ingest recent CVEs
+        run: |
+          python -c "
+          from src.backend.services.cve_service import get_cve_service
+          from src.backend.database.engine import SessionLocal, Base, engine
+          from src.backend.database import db_models
+          from src.backend.database.db_models import CveDB
+
+          Base.metadata.create_all(bind=engine)
+          svc = get_cve_service()
+          cves = svc.fetch_recent(days=1, max_results=50)
+
+          db = SessionLocal()
+          ingested, updated = 0, 0
+          for c in cves:
+              cid = c.get('cve_id')
+              if not cid:
+                  continue
+              existing = db.query(CveDB).filter(CveDB.cve_id == cid).first()
+              if existing:
+                  for k, v in c.items(): setattr(existing, k, v)
+                  updated += 1
+              else:
+                  db.add(CveDB(**c))
+                  ingested += 1
+          db.commit()
+          db.close()
+          print(f'Ingested: {ingested} new, Updated: {updated}')
+          "
