@@ -6,7 +6,8 @@ import streamlit as st
 
 from configs.settings import settings
 
-BACKEND = f"http://127.0.0.1:{settings.api_port}{settings.api_prefix}"
+import os
+BACKEND = os.getenv("CYBERMIND_BACKEND_URL", f"http://127.0.0.1:{settings.api_port}{settings.api_prefix}")
 API_KEY = "cybermind-dev-key-change-in-prod"
 
 
