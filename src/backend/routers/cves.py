@@ -4,8 +4,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from configs.logging_config import get_logger
-from src.backend.database.engine import get_db
 from src.backend.database.db_models import CveDB
+from src.backend.database.engine import get_db
 from src.backend.middleware.auth import verify_api_key
 from src.backend.services.cve_service import CVEService, get_cve_service
 

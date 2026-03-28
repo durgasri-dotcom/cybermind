@@ -1,8 +1,7 @@
 from __future__ import annotations
 
 import time
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime
 
 import httpx
 
@@ -28,7 +27,7 @@ class CVEService:
     def fetch_recent(self, days: int = 7, max_results: int = 20) -> list[dict]:
         """Fetch CVEs published in the last N days."""
         from datetime import timedelta
-        end = datetime.now(timezone.utc)
+        end = datetime.now(UTC)
         start = end - timedelta(days=days)
         params = {
             "pubStartDate": start.strftime("%Y-%m-%dT%H:%M:%S.000"),
@@ -233,6 +232,7 @@ def get_cve_service() -> CVEService:
     global _cve_service
     if _cve_service is None:
         import os
+
         from dotenv import load_dotenv
         load_dotenv()
         api_key = os.getenv("NVD_API_KEY")  
