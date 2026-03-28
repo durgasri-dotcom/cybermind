@@ -3,8 +3,10 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, Request
+from sqlalchemy import text
 
 from configs.settings import settings
+from src.backend.database.engine import engine
 
 router = APIRouter()
 
@@ -12,6 +14,15 @@ router = APIRouter()
 @router.get("/health")
 async def health_check(request: Request):
     rag_svc = getattr(request.app.state, "rag_service", None)
+
+    # DB health check
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+        db_status = {"status": "ok", "backend": "sqlite", "connected": True}
+    except Exception as e:
+        db_status = {"status": "error", "connected": False, "detail": str(e)}
+
     return {
         "status": "healthy",
         "platform": settings.app_name,
@@ -30,5 +41,6 @@ async def health_check(request: Request):
                 "model": settings.embedding_model,
             },
             "vector_backend": "pinecone" if settings.use_pinecone else "faiss",
+            "database": db_status,
         },
     }
