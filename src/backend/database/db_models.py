@@ -55,3 +55,22 @@ class EntityDB(Base):
     ingested_at = Column(DateTime(timezone=True), server_default=func.now())
     risk_score = Column(Float, default=0.0)
     relationships = Column(JSON, default=list)
+
+
+class CveDB(Base):
+    __tablename__ = "cves"
+
+    id = Column(Integer, primary_key=True, index=True)
+    cve_id = Column(String(20), nullable=False, unique=True, index=True)
+    description = Column(Text, nullable=False)
+    cvss_score = Column(Float, nullable=True)
+    cvss_severity = Column(String(20), nullable=True)
+    cvss_vector = Column(String(255), nullable=True)
+    published_date = Column(DateTime(timezone=True), nullable=True)
+    modified_date = Column(DateTime(timezone=True), nullable=True)
+    cwe_ids = Column(JSON, default=list)
+    affected_products = Column(JSON, default=list)
+    mitre_techniques = Column(JSON, default=list)
+    risk_score = Column(Float, default=0.0)
+    ingested_at = Column(DateTime(timezone=True), server_default=func.now())
+    raw_nvd = Column(JSON, default=dict)
