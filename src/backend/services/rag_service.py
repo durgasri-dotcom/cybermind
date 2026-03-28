@@ -136,6 +136,58 @@ class RAGService:
     def retrieve_chunks(self, query: str, top_k: int | None = None) -> list[str]:
         return [r["chunk"] for r in self.retrieve(query, top_k)]
 
+    def retrieve_with_cves(
+        self,
+        query: str,
+        top_k: int | None = None,
+        max_cves: int = 3,
+    ) -> dict:
+        """
+        Hybrid retrieval: MITRE ATT&CK chunks from FAISS + relevant CVEs from SQLite.
+        Returns both sources merged for LLM context.
+        """
+        from src.backend.database.db_models import CveDB
+        from src.backend.database.engine import SessionLocal
+        from sqlalchemy import or_
+
+        # ── MITRE retrieval from FAISS ────────────────────────────────────
+        mitre_results = self.retrieve(query=query, top_k=top_k)
+
+        # ── CVE retrieval from SQLite ─────────────────────────────────────
+        cve_chunks = []
+        try:
+            db = SessionLocal()
+            keywords = [w.lower() for w in query.split() if len(w) > 4]
+            q = db.query(CveDB).filter(
+                or_(
+                    CveDB.cvss_severity.in_(["CRITICAL", "HIGH"]),
+                    *[CveDB.description.ilike(f"%{kw}%") for kw in keywords[:3]],
+                )
+            ).order_by(CveDB.risk_score.desc()).limit(max_cves)
+            cves = q.all()
+            for cve in cves:
+                techniques = ", ".join(cve.mitre_techniques or []) or "unknown"
+                chunk = (
+                    f"CVE {cve.cve_id} [{cve.cvss_severity} · CVSS {cve.cvss_score}]: "
+                    f"{cve.description[:300]} "
+                    f"(CWE: {', '.join(cve.cwe_ids or ['—'])} · "
+                    f"MITRE: {techniques})"
+                )
+                cve_chunks.append(chunk)
+            db.close()
+        except Exception as e:
+            logger.warning("cve_retrieval_failed", error=str(e))
+
+        mitre_chunks = [r["chunk"] for r in mitre_results]
+
+        return {
+            "mitre_chunks": mitre_chunks,
+            "cve_chunks": cve_chunks,
+            "all_chunks": mitre_chunks + cve_chunks,
+            "mitre_results": mitre_results,
+            "has_cves": len(cve_chunks) > 0,
+        }
+
     @property
     def is_ready(self) -> bool:
         return self._is_loaded and self._index is not None and self._index.ntotal > 0

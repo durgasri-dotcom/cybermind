@@ -46,13 +46,18 @@ async def query_threat_intel(
 ):
     total_start = time.perf_counter()
 
-    retrieval_results = rag_svc.retrieve(query=body.query, top_k=body.top_k)
-    chunks = [r["chunk"] for r in retrieval_results]
-    metadata = [r["metadata"] for r in retrieval_results]
+    # ── hybrid retrieval: MITRE + CVEs ────────────────────────────────────
+    hybrid = rag_svc.retrieve_with_cves(query=body.query, top_k=body.top_k, max_cves=3)
+    mitre_results = hybrid["mitre_results"]
+    chunks = hybrid["all_chunks"]
+    mitre_chunks = hybrid["mitre_chunks"]
+    cve_chunks = hybrid["cve_chunks"]
+    metadata = [r["metadata"] for r in mitre_results]
 
+    # ── similar threats from MITRE results ───────────────────────────────
     similar_threats = []
     seen = set()
-    for result in retrieval_results:
+    for result in mitre_results:
         tid = result["metadata"].get("threat_id", "unknown")
         if tid not in seen:
             seen.add(tid)
@@ -61,23 +66,42 @@ async def query_threat_intel(
                     threat_id=tid,
                     name=result["metadata"].get("name", tid),
                     score=round(result["score"], 4),
-                    chunk_preview=result["chunk"][:150] + "..." if len(result["chunk"]) > 150 else result["chunk"],
+                    chunk_preview=result["chunk"][:150] + "..."
+                    if len(result["chunk"]) > 150
+                    else result["chunk"],
                 )
             )
 
-    threat_id = body.threat_id or (metadata[0].get("threat_id", "General") if metadata else "General")
-    threat_name = metadata[0].get("name", body.query[:80]) if metadata else body.query[:80]
+    threat_id = body.threat_id or (
+        metadata[0].get("threat_id", "General") if metadata else "General"
+    )
+    threat_name = (
+        metadata[0].get("name", body.query[:80]) if metadata else body.query[:80]
+    )
+
+    # ── build enriched context for LLM ───────────────────────────────────
+    rag_context = mitre_chunks.copy()
+    if cve_chunks:
+        rag_context.append(
+            "RELATED CVEs FROM NVD:\n" + "\n".join(cve_chunks)
+        )
 
     analysis, _ = llm_svc.analyze_threat(
         threat_id=threat_id,
         threat_name=threat_name,
-        threat_description=chunks[0] if chunks else body.query,
-        rag_context=chunks,
+        threat_description=mitre_chunks[0] if mitre_chunks else body.query,
+        rag_context=rag_context,
         analyst_query=body.query,
     )
 
     total_latency = (time.perf_counter() - total_start) * 1000
-    logger.info("intel_query_complete", threat_id=threat_id, chunks=len(chunks), latency_ms=round(total_latency, 2))
+    logger.info(
+        "intel_query_complete",
+        threat_id=threat_id,
+        mitre_chunks=len(mitre_chunks),
+        cve_chunks=len(cve_chunks),
+        latency_ms=round(total_latency, 2),
+    )
 
     return IntelQueryResponse(
         query=body.query,
@@ -89,7 +113,6 @@ async def query_threat_intel(
         latency_ms=round(total_latency, 2),
         rag_ready=rag_svc.is_ready,
     )
-
 
 @router.get("/intel/status")
 async def get_index_status(rag_svc: RAGService = Depends(get_rag_service)):
