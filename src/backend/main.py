@@ -45,14 +45,12 @@ async def lifespan(app: FastAPI):
     logger.info("scheduler_started", jobs=["cve_ingest"], interval_hours=24)
 
     # ── service startup ───────────────────────────────────────────────────────
-    embedding_svc = get_embedding_service()
     rag_svc = get_rag_service()
     rag_svc.load_index()
     llm_svc = get_llm_service()
-    app.state.embedding_service = embedding_svc
     app.state.rag_service = rag_svc
     app.state.llm_service = llm_svc
-
+    
     elapsed = (time.perf_counter() - start) * 1000
     logger.info(
         "cybermind_ready",

@@ -4,7 +4,6 @@ import time
 from functools import lru_cache
 
 import numpy as np
-from sentence_transformers import SentenceTransformer
 
 from configs.logging_config import get_logger
 from configs.settings import settings
@@ -14,22 +13,29 @@ logger = get_logger(__name__)
 
 class EmbeddingService:
     def __init__(self) -> None:
-        start = time.perf_counter()
-        self._model = SentenceTransformer(settings.embedding_model)
+        self._model = None
         self._dimension = settings.embedding_dimension
-        elapsed = (time.perf_counter() - start) * 1000
-        logger.info("embedding_model_loaded", model=settings.embedding_model, latency_ms=round(elapsed, 2))
+
+    def _ensure_loaded(self) -> None:
+        if self._model is None:
+            from sentence_transformers import SentenceTransformer
+            start = time.perf_counter()
+            self._model = SentenceTransformer(settings.embedding_model)
+            elapsed = (time.perf_counter() - start) * 1000
+            logger.info("embedding_model_loaded", model=settings.embedding_model, latency_ms=round(elapsed, 2))
 
     @property
     def dimension(self) -> int:
         return self._dimension
 
     def embed_text(self, text: str) -> np.ndarray:
+        self._ensure_loaded()
         return self._model.encode(text, normalize_embeddings=True)
 
     def embed_batch(self, texts: list[str], batch_size: int = 64) -> np.ndarray:
         if not texts:
             return np.empty((0, self._dimension), dtype=np.float32)
+        self._ensure_loaded()
         return self._model.encode(
             texts,
             batch_size=batch_size,
