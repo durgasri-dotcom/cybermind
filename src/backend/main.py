@@ -25,17 +25,30 @@ async def lifespan(app: FastAPI):
     start = time.perf_counter()
 
     # ── DB init ───────────────────────────────────────────────────────────────
+    from src.backend.database.engine import engine, Base
     from src.backend.database import db_models  # noqa: F401
-    from src.backend.database.engine import Base, engine
     Base.metadata.create_all(bind=engine)
     logger.info("database_ready", backend="sqlite")
+
+    # ── scheduler ─────────────────────────────────────────────────────────────
+    from src.backend.services.scheduler import get_scheduler, ingest_cves_job
+    from apscheduler.triggers.interval import IntervalTrigger
+    scheduler = get_scheduler()
+    scheduler.add_job(
+        ingest_cves_job,
+        trigger=IntervalTrigger(hours=24),
+        id="cve_ingest",
+        replace_existing=True,
+        misfire_grace_time=3600,
+    )
+    scheduler.start()
+    logger.info("scheduler_started", jobs=["cve_ingest"], interval_hours=24)
 
     # ── service startup ───────────────────────────────────────────────────────
     embedding_svc = get_embedding_service()
     rag_svc = get_rag_service()
     rag_svc.load_index()
     llm_svc = get_llm_service()
-
     app.state.embedding_service = embedding_svc
     app.state.rag_service = rag_svc
     app.state.llm_service = llm_svc
@@ -50,8 +63,8 @@ async def lifespan(app: FastAPI):
 
     yield
 
+    scheduler.shutdown()
     logger.info("cybermind_shutdown")
-
 
 app = FastAPI(
     title=settings.app_name,
