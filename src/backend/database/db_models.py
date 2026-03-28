@@ -74,3 +74,15 @@ class CveDB(Base):
     risk_score = Column(Float, default=0.0)
     ingested_at = Column(DateTime(timezone=True), server_default=func.now())
     raw_nvd = Column(JSON, default=dict)
+
+class RequestLogDB(Base):
+    __tablename__ = "request_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    method = Column(String(10), nullable=False)           
+    path = Column(String(500), nullable=False)            
+    status_code = Column(Integer, nullable=False)         
+    latency_ms = Column(Float, nullable=False)            
+    client_ip = Column(String(100), nullable=True)
+    user_agent = Column(String(500), nullable=True)
+    timestamp = Column(DateTime(timezone=True), server_default=func.now(), index=True)
