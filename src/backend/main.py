@@ -9,8 +9,8 @@ from fastapi.responses import JSONResponse
 
 from configs.logging_config import configure_logging, get_logger
 from configs.settings import settings
-from src.backend.routers import alerts, analytics, cves, entities, health, intel, playbooks, threats
 from src.backend.middleware.request_logger import request_logging_middleware
+from src.backend.routers import alerts, analytics, cves, entities, health, intel, playbooks, threats
 from src.backend.services.embedding_service import get_embedding_service
 from src.backend.services.llm_service import get_llm_service
 from src.backend.services.rag_service import get_rag_service

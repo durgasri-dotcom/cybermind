@@ -6,8 +6,8 @@ from fastapi import Request
 from sqlalchemy.orm import Session
 
 from configs.logging_config import get_logger
-from src.backend.database.engine import SessionLocal
 from src.backend.database.db_models import RequestLogDB
+from src.backend.database.engine import SessionLocal
 
 logger = get_logger(__name__)
 
