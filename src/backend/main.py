@@ -23,6 +23,13 @@ async def lifespan(app: FastAPI):
     logger.info("cybermind_startup", version=settings.app_version)
     start = time.perf_counter()
 
+    # ── DB init ───────────────────────────────────────────────────────────────
+    from src.backend.database.engine import engine, Base
+    from src.backend.database import db_models  # noqa: F401
+    Base.metadata.create_all(bind=engine)
+    logger.info("database_ready", backend="sqlite")
+
+    # ── service startup ───────────────────────────────────────────────────────
     embedding_svc = get_embedding_service()
     rag_svc = get_rag_service()
     rag_svc.load_index()
