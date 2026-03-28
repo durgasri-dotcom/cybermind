@@ -9,7 +9,8 @@ from fastapi.responses import JSONResponse
 
 from configs.logging_config import configure_logging, get_logger
 from configs.settings import settings
-from src.backend.routers import alerts, cves, entities, health, intel, playbooks, threats
+from src.backend.routers import alerts, analytics, cves, entities, health, intel, playbooks, threats
+from src.backend.middleware.request_logger import request_logging_middleware
 from src.backend.services.embedding_service import get_embedding_service
 from src.backend.services.llm_service import get_llm_service
 from src.backend.services.rag_service import get_rag_service
@@ -68,8 +69,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-
+app.middleware("http")(request_logging_middleware)
 @app.middleware("http")
 async def add_process_time_header(request: Request, call_next):
     start = time.perf_counter()
@@ -105,7 +105,7 @@ app.include_router(alerts.router,    prefix=prefix, tags=["Alerts"])
 app.include_router(playbooks.router, prefix=prefix, tags=["Playbooks"])
 app.include_router(entities.router,  prefix=prefix, tags=["Entities"])
 app.include_router(cves.router, prefix=prefix, tags=["CVEs"])
-
+app.include_router(analytics.router, prefix=prefix, tags=["Analytics"])
 
 @app.get("/", include_in_schema=False)
 async def root():
