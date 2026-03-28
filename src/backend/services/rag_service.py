@@ -146,9 +146,10 @@ class RAGService:
         Hybrid retrieval: MITRE ATT&CK chunks from FAISS + relevant CVEs from SQLite.
         Returns both sources merged for LLM context.
         """
+        from sqlalchemy import or_
+
         from src.backend.database.db_models import CveDB
         from src.backend.database.engine import SessionLocal
-        from sqlalchemy import or_
 
         # ── MITRE retrieval from FAISS ────────────────────────────────────
         mitre_results = self.retrieve(query=query, top_k=top_k)
