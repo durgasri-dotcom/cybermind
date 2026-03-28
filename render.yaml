@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: cybermind-backend
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    envVars:
+      - key: GROQ_API_KEY
+        sync: false
+      - key: CYBERMIND_API_KEY
+        sync: false
+      - key: DATABASE_URL
+        value: sqlite:///./cybermind.db
+      - key: PYTHONPATH
+        value: /app
+    healthCheckPath: /api/v1/health
