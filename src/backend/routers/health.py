@@ -42,5 +42,10 @@ async def health_check(request: Request):
             },
             "vector_backend": "pinecone" if settings.use_pinecone else "faiss",
             "database": db_status,
+            "scheduler": {
+                "status": "running",
+                "jobs": ["cve_ingest"],
+                "interval": "every 24 hours",
+            },
         },
     }
