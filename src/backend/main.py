@@ -24,8 +24,8 @@ async def lifespan(app: FastAPI):
     start = time.perf_counter()
 
     # ── DB init ───────────────────────────────────────────────────────────────
-    from src.backend.database.engine import engine, Base
     from src.backend.database import db_models  # noqa: F401
+    from src.backend.database.engine import Base, engine
     Base.metadata.create_all(bind=engine)
     logger.info("database_ready", backend="sqlite")
 
