@@ -13,6 +13,7 @@ from src.backend.routers import alerts, entities, health, intel, playbooks, thre
 from src.backend.services.embedding_service import get_embedding_service
 from src.backend.services.llm_service import get_llm_service
 from src.backend.services.rag_service import get_rag_service
+from src.backend.routers import alerts, cves, entities, health, intel, playbooks, threats
 
 configure_logging()
 logger = get_logger(__name__)
@@ -104,6 +105,7 @@ app.include_router(intel.router,     prefix=prefix, tags=["Intel"])
 app.include_router(alerts.router,    prefix=prefix, tags=["Alerts"])
 app.include_router(playbooks.router, prefix=prefix, tags=["Playbooks"])
 app.include_router(entities.router,  prefix=prefix, tags=["Entities"])
+app.include_router(cves.router, prefix=prefix, tags=["CVEs"])
 
 
 @app.get("/", include_in_schema=False)
