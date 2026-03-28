@@ -281,14 +281,16 @@ hr {{ border-color: var(--border) !important; }}
 st.markdown(get_css(DARK if st.session_state.theme == "dark" else LIGHT),
             unsafe_allow_html=True)
 
-from src.dashboard.tabs import alerts, entity_graph, overview, playbooks, threat_intel
+from src.dashboard.tabs import alerts, analytics, cve_intel, entity_graph, overview, playbooks, threat_intel
 
 TABS = {
     "Overview": ("🛡️", overview),
     "Threat Intel": ("🔍", threat_intel),
+    "CVE Intel": ("🔴", cve_intel),
     "Alerts": ("🚨", alerts),
     "Playbooks": ("📋", playbooks),
     "Entity Graph": ("🕸️", entity_graph),
+    "Analytics": ("📊", analytics),
 }
 
 
