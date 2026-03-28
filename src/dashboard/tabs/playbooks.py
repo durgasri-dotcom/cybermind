@@ -4,7 +4,7 @@ import streamlit as st
 from configs.settings import settings
 
 import os
-BACKEND = os.getenv("CYBERMIND_BACKEND_URL", f"http://127.0.0.1:{settings.api_port}{settings.api_prefix}")
+BACKEND = os.getenv("CYBERMIND_BACKEND_URL", "https://cybermind-0y0t.onrender.com/api/v1")
 
 
 def fetch_playbooks():
