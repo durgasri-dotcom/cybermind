@@ -7,8 +7,8 @@ from sqlalchemy.orm import Session
 
 from configs.logging_config import get_logger
 from configs.settings import settings
-from src.backend.database.engine import get_db
 from src.backend.database.db_models import AlertDB
+from src.backend.database.engine import get_db
 from src.backend.middleware.auth import verify_api_key
 from src.backend.models.alert import AlertCreate, AlertPriority, AlertRead, AlertStatus, AlertTriage
 from src.backend.services.llm_service import LLMService, get_llm_service

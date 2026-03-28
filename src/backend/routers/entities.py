@@ -1,14 +1,12 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
-
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from configs.logging_config import get_logger
 from configs.settings import settings
-from src.backend.database.engine import get_db
 from src.backend.database.db_models import EntityDB
+from src.backend.database.engine import get_db
 from src.backend.middleware.auth import verify_api_key
 from src.backend.models.entity import (
     EntityBase,
