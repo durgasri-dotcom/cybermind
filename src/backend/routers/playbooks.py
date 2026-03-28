@@ -5,8 +5,12 @@ import time
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
 
 from configs.logging_config import get_logger
+from src.backend.database.engine import get_db
+from src.backend.database.db_models import PlaybookDB
+from src.backend.middleware.auth import verify_api_key
 from src.backend.models.playbook import (
     PlaybookGenerateRequest,
     PlaybookRead,
@@ -19,39 +23,57 @@ from src.backend.services.rag_service import RAGService, get_rag_service
 logger = get_logger(__name__)
 router = APIRouter()
 
-_playbooks: dict[int, dict] = {}
-_counter = 0
+
+def _row_to_dict(row: PlaybookDB) -> dict:
+    return {
+        "id": row.id,
+        "threat_id": row.threat_id,
+        "title": row.title,
+        "objective": row.objective,
+        "steps": row.steps or [],
+        "status": row.status,
+        "tags": row.tags or [],
+        "generated_at": row.generated_at,
+        "generated_by": row.generated_by,
+        "version": row.version,
+    }
 
 
 @router.get("/playbooks")
-async def list_playbooks(status: str | None = None, limit: int = 20):
-    playbooks = list(_playbooks.values())
+async def list_playbooks(
+    status: str | None = None,
+    limit: int = 20,
+    db: Session = Depends(get_db),
+):
+    q = db.query(PlaybookDB).order_by(PlaybookDB.generated_at.desc())
     if status:
-        playbooks = [p for p in playbooks if p["status"] == status]
-    return {"playbooks": playbooks[-limit:], "total": len(playbooks)}
+        q = q.filter(PlaybookDB.status == status)
+    rows = q.limit(limit).all()
+    return {"playbooks": [_row_to_dict(r) for r in rows], "total": len(rows)}
 
 
 @router.get("/playbooks/{playbook_id}", response_model=PlaybookRead)
-async def get_playbook(playbook_id: int):
-    if playbook_id not in _playbooks:
+async def get_playbook(playbook_id: int, db: Session = Depends(get_db)):
+    row = db.query(PlaybookDB).filter(PlaybookDB.id == playbook_id).first()
+    if not row:
         raise HTTPException(status_code=404, detail=f"Playbook {playbook_id} not found")
-    return PlaybookRead(**_playbooks[playbook_id])
+    return PlaybookRead(**_row_to_dict(row))
 
 
-@router.post("/playbooks/generate", response_model=PlaybookRead)
+@router.post("/playbooks/generate", response_model=PlaybookRead,
+             dependencies=[Depends(verify_api_key)])
 async def generate_playbook(
     body: PlaybookGenerateRequest,
+    db: Session = Depends(get_db),
     llm_svc: LLMService = Depends(get_llm_service),
     rag_svc: RAGService = Depends(get_rag_service),
 ):
-    global _counter
     start = time.perf_counter()
 
     rag_context = rag_svc.retrieve_chunks(
         query=f"incident response {body.threat_id} containment eradication",
         top_k=3,
     )
-
     alert_context = body.context
     if rag_context:
         alert_context += "\n\nRelevant context:\n" + "\n\n".join(rag_context[:2])
@@ -66,31 +88,36 @@ async def generate_playbook(
     steps = _parse_steps(raw)
     elapsed = (time.perf_counter() - start) * 1000
 
-    _counter += 1
-    playbook = {
-        "id": _counter,
-        "threat_id": body.threat_id,
-        "title": f"IR Playbook: {body.threat_id}",
-        "objective": f"Contain, eradicate, and recover from {body.threat_id} incident",
-        "steps": [s.model_dump() for s in steps],
-        "status": PlaybookStatus.ACTIVE,
-        "tags": ["auto-generated", body.threat_id],
-        "generated_at": datetime.now(UTC),
-        "generated_by": "CyberMind",
-        "version": 1,
-    }
-    _playbooks[_counter] = playbook
+    row = PlaybookDB(
+        threat_id=body.threat_id,
+        title=f"IR Playbook: {body.threat_id}",
+        objective=f"Contain, eradicate, and recover from {body.threat_id} incident",
+        steps=[s.model_dump() for s in steps],
+        status=PlaybookStatus.ACTIVE,
+        tags=["auto-generated", body.threat_id],
+        generated_by="CyberMind",
+        version=1,
+    )
+    db.add(row)
+    db.commit()
+    db.refresh(row)
 
-    logger.info("playbook_generated", id=_counter, threat_id=body.threat_id, steps=len(steps), latency_ms=round(elapsed, 2))
-    return PlaybookRead(**playbook)
+    logger.info("playbook_generated", id=row.id, threat_id=body.threat_id,
+                steps=len(steps), latency_ms=round(elapsed, 2))
+    return PlaybookRead(**_row_to_dict(row))
 
 
-@router.delete("/playbooks/{playbook_id}", status_code=204)
-async def delete_playbook(playbook_id: int):
-    if playbook_id not in _playbooks:
+@router.delete("/playbooks/{playbook_id}", status_code=204,
+               dependencies=[Depends(verify_api_key)])
+async def delete_playbook(playbook_id: int, db: Session = Depends(get_db)):
+    row = db.query(PlaybookDB).filter(PlaybookDB.id == playbook_id).first()
+    if not row:
         raise HTTPException(status_code=404, detail=f"Playbook {playbook_id} not found")
-    del _playbooks[playbook_id]
+    db.delete(row)
+    db.commit()
 
+
+# ── helpers (unchanged from original) ────────────────────────────────────────
 
 def _parse_steps(raw: str) -> list[PlaybookStep]:
     steps = []
@@ -100,7 +127,8 @@ def _parse_steps(raw: str) -> list[PlaybookStep]:
     step_num = 0
 
     for line in lines:
-        match = re.match(r"^(?:\*{0,2})?(?:Step\s+)?(\d+)[.:)\]]\s*\*{0,2}\s*(.+)", line.strip(), re.IGNORECASE)
+        match = re.match(r"^(?:\*{0,2})?(?:Step\s+)?(\d+)[.:)\]]\s*\*{0,2}\s*(.+)",
+                         line.strip(), re.IGNORECASE)
         if match:
             if current is not None:
                 current["notes"] = " ".join(current_notes).strip()
@@ -132,7 +160,6 @@ def _parse_steps(raw: str) -> list[PlaybookStep]:
             estimated_minutes=30,
             notes=raw[:500],
         ))
-
     return steps
 
 
