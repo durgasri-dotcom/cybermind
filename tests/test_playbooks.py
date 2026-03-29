@@ -1,5 +1,4 @@
-import pytest
-from src.backend.routers.playbooks import _parse_steps, _infer_team, _infer_tools, _infer_time
+from src.backend.routers.playbooks import _infer_team, _infer_time, _infer_tools, _parse_steps
 
 
 def test_parse_steps_numbered():

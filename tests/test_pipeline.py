@@ -1,11 +1,11 @@
-import pytest
-import json
-from pathlib import Path
-from unittest.mock import patch, MagicMock
-from src.backend.services.mitre_loader import parse_techniques, _extract_technique_id, _extract_tactics, _base_score
+from src.backend.services.mitre_loader import (
+    _base_score,
+    _extract_tactics,
+    _extract_technique_id,
+    parse_techniques,
+)
 from src.backend.services.threat_scoring import bulk_score
-from src.pipeline.transform_threats import deduplicate, clean_text, transform
-
+from src.pipeline.transform_threats import clean_text, deduplicate, transform
 
 SAMPLE_ATTACK_PATTERN = {
     "type": "attack-pattern",

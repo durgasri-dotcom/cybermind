@@ -1,6 +1,5 @@
-import pytest
-from src.backend.services.threat_scoring import compute_risk_score, score_to_severity, bulk_score
 from src.backend.models.threat import SeverityLevel
+from src.backend.services.threat_scoring import bulk_score, compute_risk_score, score_to_severity
 
 
 def test_compute_risk_score_base():

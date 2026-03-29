@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from apscheduler.triggers.interval import IntervalTrigger
 
 from configs.logging_config import get_logger
 

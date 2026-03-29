@@ -11,7 +11,6 @@ from configs.logging_config import configure_logging, get_logger
 from configs.settings import settings
 from src.backend.middleware.request_logger import request_logging_middleware
 from src.backend.routers import alerts, analytics, cves, entities, health, intel, playbooks, threats
-from src.backend.services.embedding_service import get_embedding_service
 from src.backend.services.llm_service import get_llm_service
 from src.backend.services.rag_service import get_rag_service
 
@@ -25,14 +24,15 @@ async def lifespan(app: FastAPI):
     start = time.perf_counter()
 
     # ── DB init ───────────────────────────────────────────────────────────────
-    from src.backend.database.engine import engine, Base
     from src.backend.database import db_models  # noqa: F401
+    from src.backend.database.engine import Base, engine
     Base.metadata.create_all(bind=engine)
     logger.info("database_ready", backend="sqlite")
 
     # ── scheduler ─────────────────────────────────────────────────────────────
-    from src.backend.services.scheduler import get_scheduler, ingest_cves_job
     from apscheduler.triggers.interval import IntervalTrigger
+
+    from src.backend.services.scheduler import get_scheduler, ingest_cves_job
     scheduler = get_scheduler()
     scheduler.add_job(
         ingest_cves_job,
