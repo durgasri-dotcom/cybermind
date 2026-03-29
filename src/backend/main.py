@@ -13,7 +13,7 @@ from src.backend.middleware.request_logger import request_logging_middleware
 from src.backend.routers import alerts, analytics, cves, entities, health, intel, playbooks, threats
 from src.backend.services.llm_service import get_llm_service
 from src.backend.services.rag_service import get_rag_service
-
+from src.backend.database.engine import SessionLocal
 configure_logging()
 logger = get_logger(__name__)
 
@@ -28,6 +28,30 @@ async def lifespan(app: FastAPI):
     from src.backend.database.engine import Base, engine
     Base.metadata.create_all(bind=engine)
     logger.info("database_ready", backend="sqlite")
+
+    # ── startup CVE ingest (repopulates DB after Render cold start) ───────────
+    try:
+        from src.backend.services.cve_service import get_cve_service
+        from src.backend.database.db_models import CveDB
+        cve_count = SessionLocal().query(CveDB).count()
+        if cve_count == 0:
+            logger.info("startup_cve_ingest_start", reason="empty_database")
+            cve_svc = get_cve_service()
+            cves = cve_svc.fetch_recent(days=7, max_results=50)
+            db = SessionLocal()
+            ingested = 0
+            for cve_data in cves:
+                cve_id = cve_data.get("cve_id")
+                if cve_id and not db.query(CveDB).filter(CveDB.cve_id == cve_id).first():
+                    db.add(CveDB(**cve_data))
+                    ingested += 1
+            db.commit()
+            db.close()
+            logger.info("startup_cve_ingest_complete", ingested=ingested)
+        else:
+            logger.info("startup_cve_ingest_skipped", existing_cves=cve_count)
+    except Exception as e:
+        logger.warning("startup_cve_ingest_failed", error=str(e))
 
     # ── scheduler ─────────────────────────────────────────────────────────────
     from apscheduler.triggers.interval import IntervalTrigger
