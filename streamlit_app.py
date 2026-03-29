@@ -9,7 +9,7 @@ import time
 
 import plotly.graph_objects as go
 import streamlit as st
-
+BACKEND_URL = "https://cybermind-0y0t.onrender.com/api/v1"
 st.set_page_config(
     page_title="CyberMind",
     page_icon="🛡️",
@@ -242,9 +242,10 @@ def render_overview(T: dict, rag_svc, llm_svc):
             pass
         filtered = {k: v for k, v in by_sev.items() if v > 0}
         if not filtered:
-            from configs.settings import settings as cfg
             import json
             from pathlib import Path
+
+            from configs.settings import settings as cfg
             p = Path(cfg.mitre_gold_path)
             if p.exists():
                 with open(p, encoding="utf-8") as f:
@@ -661,7 +662,210 @@ def render_entity_graph(T: dict, llm_svc):
                 })
                 st.markdown(f"<div style='background:{T['--success-bg']};border:1px solid {T['--success-border']};border-left:3px solid {T['--green']};border-radius:6px;padding:0.8rem 1rem;font-family:JetBrains Mono,monospace;font-size:0.75rem;color:{T['--green']};'>✓ ENTITY '{name.upper()}' ADDED SUCCESSFULLY</div>", unsafe_allow_html=True)
                 st.rerun()
+def render_cve_intel(T: dict):
+    import httpx
+    st.markdown(f"""
+    <div style='margin-bottom:2rem;'>
+    <div style='font-family:Rajdhani,sans-serif;font-size:2rem;font-weight:700;color:{T["--text-primary"]};letter-spacing:0.05em;'>CVE INTELLIGENCE</div>
+    <div style='font-family:JetBrains Mono,monospace;font-size:0.7rem;color:{T["--text-dim"]};letter-spacing:0.15em;margin-top:0.3rem;'>LIVE NVD FEED · CVSS SCORING · MITRE ATT&CK MAPPING</div>
+    </div>""", unsafe_allow_html=True)
 
+    # fetch stats
+    stats = None
+    cves = []
+    backend_online = False
+    try:
+        r = httpx.get(f"{BACKEND_URL}/cves/stats", timeout=8)
+        if r.status_code == 200:
+            stats = r.json()
+            backend_online = True
+        r2 = httpx.get(f"{BACKEND_URL}/cves", params={"limit": 50}, timeout=8)
+        if r2.status_code == 200:
+            cves = r2.json().get("cves", [])
+    except Exception:
+        pass
+
+    if not backend_online:
+        st.markdown(f"""
+        <div style='background:{T["--warn-bg"]};border:1px solid {T["--warn-border"]};
+        border-left:3px solid {T["--yellow"]};border-radius:8px;padding:1.2rem 1.5rem;
+        margin-bottom:1.5rem;'>
+        <div style='font-family:Rajdhani,sans-serif;font-size:1.1rem;font-weight:700;
+        color:{T["--yellow"]};margin-bottom:0.4rem;'>⏳ BACKEND WARMING UP</div>
+        <div style='font-family:JetBrains Mono,monospace;font-size:0.75rem;color:{T["--text-secondary"]};line-height:1.6;'>
+        The CyberMind backend is starting up on Render (free tier cold start ~30s).<br>
+        Click refresh in a moment to load live CVE data from NVD.
+        </div></div>""", unsafe_allow_html=True)
+        if st.button("↻ REFRESH", key="cve_refresh"):
+            st.rerun()
+        return
+
+    # metrics
+    col1, col2, col3, col4 = st.columns(4)
+    with col1: st.metric("TOTAL CVEs", f"{stats.get('total', 0):,}")
+    with col2: st.metric("CRITICAL", f"{stats.get('critical', 0):,}")
+    with col3: st.metric("AVG CVSS", f"{stats.get('avg_cvss_score', 0):.2f}")
+    with col4: st.metric("HIGH", f"{stats.get('by_severity', {}).get('HIGH', 0):,}")
+
+    st.markdown(f"<div style='margin:1.5rem 0;border-top:1px solid {T['--border']};'></div>", unsafe_allow_html=True)
+
+    # severity chart
+    col_left, col_right = st.columns(2)
+    with col_left:
+        st.markdown(f"<div style='font-family:Rajdhani,sans-serif;font-size:1.1rem;font-weight:600;color:{T['--text-secondary']};letter-spacing:0.1em;text-transform:uppercase;margin-bottom:1rem;'>SEVERITY DISTRIBUTION</div>", unsafe_allow_html=True)
+        by_sev = {k: v for k, v in stats.get("by_severity", {}).items() if v > 0}
+        if by_sev:
+            SEV_COLORS = {"CRITICAL": T["--red"], "HIGH": T["--orange"], "MEDIUM": T["--yellow"], "LOW": T["--green"]}
+            fig = go.Figure(go.Pie(
+                labels=list(by_sev.keys()), values=list(by_sev.values()),
+                marker=dict(colors=[SEV_COLORS.get(s, T["--text-dim"]) for s in by_sev.keys()],
+                            line=dict(color=T["--bg-primary"], width=2)),
+                hole=0.6, textfont=dict(family="JetBrains Mono", size=11),
+                hovertemplate="<b>%{label}</b><br>%{value} CVEs<extra></extra>",
+            ))
+            fig.add_annotation(text=f"<b>{sum(by_sev.values())}</b><br><span style='font-size:10px'>TOTAL</span>",
+                x=0.5, y=0.5, font=dict(family="Rajdhani", size=22, color=T["--cyan"]), showarrow=False)
+            fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                font=dict(family="JetBrains Mono", color=T["--text-secondary"]),
+                showlegend=True, legend=dict(font=dict(family="JetBrains Mono", size=10), bgcolor="rgba(0,0,0,0)"),
+                margin=dict(t=20, b=20, l=20, r=20), height=280)
+            st.plotly_chart(fig, use_container_width=True)
+
+    with col_right:
+        st.markdown(f"<div style='font-family:Rajdhani,sans-serif;font-size:1.1rem;font-weight:600;color:{T['--text-secondary']};letter-spacing:0.1em;text-transform:uppercase;margin-bottom:1rem;'>TOP CVEs BY RISK SCORE</div>", unsafe_allow_html=True)
+        if cves:
+            SEV_COLORS = {"CRITICAL": T["--red"], "HIGH": T["--orange"], "MEDIUM": T["--yellow"], "LOW": T["--green"]}
+            top10 = cves[:10]
+            fig = go.Figure(go.Bar(
+                x=[c["risk_score"] for c in top10],
+                y=[c["cve_id"] for c in top10],
+                orientation="h",
+                marker=dict(color=[SEV_COLORS.get(c.get("cvss_severity", ""), T["--text-dim"]) for c in top10]),
+                hovertemplate="<b>%{y}</b><br>Risk: %{x:.2f}<extra></extra>",
+            ))
+            fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                font=dict(family="JetBrains Mono", size=9, color=T["--text-secondary"]),
+                xaxis=dict(range=[0, 1], gridcolor=T["--border"]),
+                yaxis=dict(gridcolor=T["--border"]),
+                margin=dict(t=10, b=10, l=10, r=10), height=280)
+            st.plotly_chart(fig, use_container_width=True)
+
+    st.markdown(f"<div style='margin:1.5rem 0;border-top:1px solid {T['--border']};'></div>", unsafe_allow_html=True)
+
+    # CVE feed
+    st.markdown(f"<div style='font-family:Rajdhani,sans-serif;font-size:1.1rem;font-weight:600;color:{T['--text-secondary']};letter-spacing:0.1em;text-transform:uppercase;margin-bottom:1rem;'>CVE FEED</div>", unsafe_allow_html=True)
+    sev_filter = st.selectbox("FILTER BY SEVERITY", ["ALL", "CRITICAL", "HIGH", "MEDIUM", "LOW"], key="sa_cve_filter")
+    filtered_cves = [c for c in cves if sev_filter == "ALL" or c.get("cvss_severity") == sev_filter]
+
+    SEV_COLORS = {"CRITICAL": T["--red"], "HIGH": T["--orange"], "MEDIUM": T["--yellow"], "LOW": T["--green"]}
+    for cve in filtered_cves:
+        sev = cve.get("cvss_severity", "UNKNOWN")
+        color = SEV_COLORS.get(sev, T["--text-dim"])
+        techniques = ", ".join(cve.get("mitre_techniques", [])) or "—"
+        cwes = ", ".join(cve.get("cwe_ids", [])) or "—"
+        with st.expander(f"{cve['cve_id']} · CVSS {cve.get('cvss_score', '—')} · {sev}"):
+            st.markdown(f"""
+            <div style='font-family:JetBrains Mono,monospace;font-size:0.8rem;color:{T["--text-secondary"]};line-height:1.6;'>
+            <div style='color:{color};font-weight:600;margin-bottom:0.5rem;'>{sev} · Risk: {cve.get('risk_score', 0):.2f}</div>
+            <div style='margin-bottom:0.5rem;'>{cve.get('description', '')[:400]}</div>
+            <div><span style='color:{T["--text-dim"]};'>CWE:</span> {cwes}</div>
+            <div><span style='color:{T["--text-dim"]};'>MITRE:</span> <span style='color:{T["--cyan"]};'>{techniques}</span></div>
+            </div>""", unsafe_allow_html=True)
+
+
+def render_analytics(T: dict):
+    import httpx
+    st.markdown(f"""
+    <div style='margin-bottom:2rem;'>
+    <div style='font-family:Rajdhani,sans-serif;font-size:2rem;font-weight:700;color:{T["--text-primary"]};letter-spacing:0.05em;'>API ANALYTICS</div>
+    <div style='font-family:JetBrains Mono,monospace;font-size:0.7rem;color:{T["--text-dim"]};letter-spacing:0.15em;margin-top:0.3rem;'>REQUEST OBSERVABILITY · LATENCY TRACKING · ENDPOINT USAGE</div>
+    </div>""", unsafe_allow_html=True)
+
+    stats = None
+    recent = []
+    backend_online = False
+    try:
+        r = httpx.get(f"{BACKEND_URL}/analytics/requests", timeout=8)
+        if r.status_code == 200:
+            stats = r.json()
+            backend_online = True
+        r2 = httpx.get(f"{BACKEND_URL}/analytics/requests/recent", params={"limit": 20}, timeout=8)
+        if r2.status_code == 200:
+            recent = r2.json().get("requests", [])
+    except Exception:
+        pass
+
+    if not backend_online:
+        st.markdown(f"""
+        <div style='background:{T["--warn-bg"]};border:1px solid {T["--warn-border"]};
+        border-left:3px solid {T["--yellow"]};border-radius:8px;padding:1.2rem 1.5rem;'>
+        <div style='font-family:Rajdhani,sans-serif;font-size:1.1rem;font-weight:700;
+        color:{T["--yellow"]};margin-bottom:0.4rem;'>⏳ BACKEND WARMING UP</div>
+        <div style='font-family:JetBrains Mono,monospace;font-size:0.75rem;color:{T["--text-secondary"]};line-height:1.6;'>
+        Analytics requires the CyberMind backend. Click refresh after ~30 seconds.
+        </div></div>""", unsafe_allow_html=True)
+        if st.button("↻ REFRESH", key="analytics_refresh"):
+            st.rerun()
+        return
+
+    col1, col2, col3, col4 = st.columns(4)
+    by_status = stats.get("by_status_code", {})
+    with col1: st.metric("TOTAL REQUESTS", f"{stats.get('total_requests', 0):,}")
+    with col2: st.metric("AVG LATENCY", f"{stats.get('avg_latency_ms', 0):.1f}ms")
+    with col3: st.metric("2xx SUCCESS", f"{by_status.get('200', 0) + by_status.get('201', 0):,}")
+    with col4: st.metric("ERRORS", f"{by_status.get('500', 0) + by_status.get('404', 0):,}")
+
+    st.markdown(f"<div style='margin:1.5rem 0;border-top:1px solid {T['--border']};'></div>", unsafe_allow_html=True)
+
+    col_left, col_right = st.columns(2)
+    with col_left:
+        st.markdown(f"<div style='font-family:Rajdhani,sans-serif;font-size:1.1rem;font-weight:600;color:{T['--text-secondary']};letter-spacing:0.1em;text-transform:uppercase;margin-bottom:1rem;'>REQUESTS BY METHOD</div>", unsafe_allow_html=True)
+        by_method = stats.get("by_method", {})
+        if by_method:
+            METHOD_COLORS = {"GET": T["--cyan"], "POST": T["--green"], "PATCH": T["--yellow"], "DELETE": T["--red"]}
+            fig = go.Figure(go.Bar(
+                x=list(by_method.keys()), y=list(by_method.values()),
+                marker=dict(color=[METHOD_COLORS.get(m, T["--text-dim"]) for m in by_method.keys()]),
+                hovertemplate="<b>%{x}</b><br>%{y} requests<extra></extra>",
+            ))
+            fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                font=dict(family="JetBrains Mono", size=10, color=T["--text-secondary"]),
+                xaxis=dict(gridcolor=T["--border"]), yaxis=dict(gridcolor=T["--border"]),
+                margin=dict(t=10, b=10, l=10, r=10), height=250)
+            st.plotly_chart(fig, use_container_width=True)
+
+    with col_right:
+        st.markdown(f"<div style='font-family:Rajdhani,sans-serif;font-size:1.1rem;font-weight:600;color:{T['--text-secondary']};letter-spacing:0.1em;text-transform:uppercase;margin-bottom:1rem;'>TOP ENDPOINTS</div>", unsafe_allow_html=True)
+        top = stats.get("top_endpoints", [])
+        if top:
+            paths = [e["path"].replace("/api/v1/", "") for e in top]
+            fig = go.Figure(go.Bar(
+                x=[e["count"] for e in top], y=paths, orientation="h",
+                marker=dict(color=T["--cyan"]),
+                hovertemplate="<b>%{y}</b><br>%{x} requests<extra></extra>",
+            ))
+            fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                font=dict(family="JetBrains Mono", size=10, color=T["--text-secondary"]),
+                xaxis=dict(gridcolor=T["--border"]), yaxis=dict(gridcolor=T["--border"]),
+                margin=dict(t=10, b=10, l=10, r=10), height=250)
+            st.plotly_chart(fig, use_container_width=True)
+
+    st.markdown(f"<div style='margin:1.5rem 0;border-top:1px solid {T['--border']};'></div>", unsafe_allow_html=True)
+    st.markdown(f"<div style='font-family:Rajdhani,sans-serif;font-size:1.1rem;font-weight:600;color:{T['--text-secondary']};letter-spacing:0.1em;text-transform:uppercase;margin-bottom:1rem;'>RECENT REQUEST LOG</div>", unsafe_allow_html=True)
+
+    STATUS_COLORS = {2: T["--green"], 3: T["--yellow"], 4: T["--orange"], 5: T["--red"]}
+    for req in recent:
+        code = req.get("status_code", 0)
+        color = STATUS_COLORS.get(code // 100, T["--text-dim"])
+        st.markdown(f"""
+        <div style='background:{T["--bg-card"]};border:1px solid {T["--border"]};border-radius:4px;
+        padding:0.4rem 0.8rem;margin-bottom:0.3rem;display:flex;justify-content:space-between;'>
+        <div style='font-family:JetBrains Mono,monospace;font-size:0.75rem;color:{T["--text-secondary"]};'>
+        <span style='color:{T["--cyan"]};margin-right:0.5rem;'>{req.get("method")}</span>{req.get("path")}</div>
+        <div style='display:flex;gap:1rem;font-family:JetBrains Mono,monospace;font-size:0.75rem;'>
+        <span style='color:{color};'>{code}</span>
+        <span style='color:{T["--text-dim"]};'>{req.get("latency_ms", 0):.1f}ms</span></div></div>""",
+        unsafe_allow_html=True)
 
 # ── Main ───────────────────────────────────────────────────────────────────────
 
@@ -685,7 +889,7 @@ def main():
 
     st.sidebar.markdown(f"<div style='font-family:JetBrains Mono,monospace;font-size:0.65rem;color:{T['--text-dim']};letter-spacing:0.15em;text-transform:uppercase;margin-bottom:0.5rem;'>NAVIGATION</div>", unsafe_allow_html=True)
 
-    TABS = {"Overview": "🛡️", "Threat Intel": "🔍", "Alerts": "🚨", "Playbooks": "📋", "Entity Graph": "🕸️"}
+    TABS = {"Overview": "🛡️", "Threat Intel": "🔍", "CVE Intel": "🔴", "Alerts": "🚨", "Playbooks": "📋", "Entity Graph": "🕸️", "Analytics": "📊"}
     selected = st.sidebar.radio("nav", list(TABS.keys()), format_func=lambda x: f"{TABS[x]}  {x}", label_visibility="collapsed")
 
     st.sidebar.markdown(f"""<hr style='border-color:{T["--border"]};margin:1.5rem 0;'>
@@ -705,6 +909,10 @@ def main():
         render_playbooks(T, rag_svc, llm_svc)
     elif selected == "Entity Graph":
         render_entity_graph(T, llm_svc)
+    elif selected == "CVE Intel":
+        render_cve_intel(T)
+    elif selected == "Analytics":
+        render_analytics(T)
 
 
 if __name__ == "__main__":
