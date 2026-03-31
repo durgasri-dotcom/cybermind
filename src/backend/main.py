@@ -9,11 +9,12 @@ from fastapi.responses import JSONResponse
 
 from configs.logging_config import configure_logging, get_logger
 from configs.settings import settings
+from src.backend.database.engine import SessionLocal
 from src.backend.middleware.request_logger import request_logging_middleware
 from src.backend.routers import alerts, analytics, cves, entities, health, intel, playbooks, threats
 from src.backend.services.llm_service import get_llm_service
 from src.backend.services.rag_service import get_rag_service
-from src.backend.database.engine import SessionLocal
+
 configure_logging()
 logger = get_logger(__name__)
 
@@ -31,8 +32,8 @@ async def lifespan(app: FastAPI):
 
     # ── startup CVE ingest (repopulates DB after Render cold start) ───────────
     try:
-        from src.backend.services.cve_service import get_cve_service
         from src.backend.database.db_models import CveDB
+        from src.backend.services.cve_service import get_cve_service
         cve_count = SessionLocal().query(CveDB).count()
         if cve_count == 0:
             logger.info("startup_cve_ingest_start", reason="empty_database")
