@@ -30,6 +30,8 @@ jobs:
     needs: lint
     env:
       GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+      CYBERMIND_API_KEY: cybermind-dev-key-change-in-prod
+      DATABASE_URL: sqlite:///./test_cybermind.db
       PYTHONPATH: .
 
     steps:
