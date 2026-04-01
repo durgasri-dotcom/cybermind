@@ -18,13 +18,59 @@ def load_gold(path: str | None = None) -> list[dict]:
         return json.load(f)
 
 
+def load_cve_documents() -> list[dict]:
+    """Load CVEs from SQLite and convert to RAG documents."""
+    try:
+        from src.backend.database.engine import SessionLocal, Base, engine
+        from src.backend.database import db_models  # noqa: F401
+        from src.backend.database.db_models import CveDB
+
+        Base.metadata.create_all(bind=engine)
+        db = SessionLocal()
+        cves = db.query(CveDB).all()
+        db.close()
+
+        documents = []
+        for cve in cves:
+            techniques = ", ".join(cve.mitre_techniques or []) or "unknown"
+            cwes = ", ".join(cve.cwe_ids or []) or "unknown"
+            text = (
+                f"{cve.cve_id}: {cve.description} "
+                f"Severity: {cve.cvss_severity or 'unknown'}. "
+                f"CVSS Score: {cve.cvss_score or 0}. "
+                f"CWE: {cwes}. "
+                f"Related MITRE techniques: {techniques}."
+            )
+            documents.append({
+                "threat_id": cve.cve_id,
+                "text": text,
+                "source": "NVD CVE",
+                "metadata": {
+                    "name": cve.cve_id,
+                    "category": "CVE",
+                    "severity": (cve.cvss_severity or "unknown").lower(),
+                    "risk_score": cve.risk_score or 0.0,
+                    "cvss_score": cve.cvss_score or 0.0,
+                    "platforms": [],
+                },
+            })
+
+        logger.info("cve_documents_loaded", count=len(documents))
+        return documents
+
+    except Exception as e:
+        logger.warning("cve_documents_load_failed", error=str(e))
+        return []
+
+
 def run() -> None:
     logger.info("vector_store_build_start")
 
+    # ── MITRE ATT&CK documents ────────────────────────────────────────────────
     threats = load_gold()
     logger.info("gold_data_loaded", count=len(threats))
 
-    documents = [
+    mitre_documents = [
         {
             "threat_id": t["threat_id"],
             "text": t.get("text") or f"{t.get('name', '')}. {t.get('description', '')}",
@@ -41,11 +87,18 @@ def run() -> None:
         if t.get("text") or t.get("description")
     ]
 
-    logger.info("documents_prepared", count=len(documents))
+    # ── CVE documents from SQLite ─────────────────────────────────────────────
+    cve_documents = load_cve_documents()
+
+    # ── combine and build index ───────────────────────────────────────────────
+    all_documents = mitre_documents + cve_documents
+    logger.info("documents_prepared",
+                mitre=len(mitre_documents),
+                cves=len(cve_documents),
+                total=len(all_documents))
 
     rag = get_rag_service()
-    total_chunks = rag.build_index_from_documents(documents)
-
+    total_chunks = rag.build_index_from_documents(all_documents)
     logger.info("vector_store_build_complete", total_chunks=total_chunks)
 
 
