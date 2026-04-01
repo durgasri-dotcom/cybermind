@@ -7,7 +7,6 @@ import streamlit as st
 
 import os
 BACKEND = os.getenv("CYBERMIND_BACKEND_URL", "https://cybermind-0y0t.onrender.com/api/v1")
-import streamlit as st
 API_KEY = st.secrets.get("CYBERMIND_API_KEY", "cybermind-dev-key-change-in-prod")
 
 

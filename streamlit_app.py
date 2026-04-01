@@ -9,7 +9,10 @@ import time
 
 import plotly.graph_objects as go
 import streamlit as st
+
 BACKEND_URL = "https://cybermind-0y0t.onrender.com/api/v1"
+API_KEY = st.secrets.get("CYBERMIND_API_KEY", "cybermind-dev-key-change-in-prod")
+
 st.set_page_config(
     page_title="CyberMind",
     page_icon="🛡️",
