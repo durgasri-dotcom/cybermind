@@ -670,7 +670,6 @@ def render_cve_intel(T: dict):
     <div style='font-family:JetBrains Mono,monospace;font-size:0.7rem;color:{T["--text-dim"]};letter-spacing:0.15em;margin-top:0.3rem;'>LIVE NVD FEED · CVSS SCORING · MITRE ATT&CK MAPPING</div>
     </div>""", unsafe_allow_html=True)
 
-    # fetch stats
     stats = None
     cves = []
     backend_online = False
@@ -679,7 +678,7 @@ def render_cve_intel(T: dict):
         if r.status_code == 200:
             stats = r.json()
             backend_online = True
-        
+        r2 = httpx.get(f"{BACKEND_URL}/cves", params={"limit": 50}, timeout=15)
         if r2.status_code == 200:
             cves = r2.json().get("cves", [])
     except Exception:
@@ -690,7 +689,7 @@ def render_cve_intel(T: dict):
         <div style='background:{T["--warn-bg"]};border:1px solid {T["--warn-border"]};
         border-left:3px solid {T["--yellow"]};border-radius:8px;padding:1.2rem 1.5rem;
         margin-bottom:1.5rem;'>
-        <div style='font-familyr2 = httpx.get(f"{BACKEND_URL}/cves", params={"limit": 50}r2 = httpx.get(f"{BACKEND_URL}/cves", params={"limit": 50}, timeout=15), timeout=8):Rajdhani,sans-serif;font-size:1.1rem;font-weight:700;
+        <div style='font-family:Rajdhani,sans-serif;font-size:1.1rem;font-weight:700;
         color:{T["--yellow"]};margin-bottom:0.4rem;'>⏳ BACKEND WARMING UP</div>
         <div style='font-family:JetBrains Mono,monospace;font-size:0.75rem;color:{T["--text-secondary"]};line-height:1.6;'>
         The CyberMind backend is starting up on Render (free tier cold start ~30s).<br>
@@ -700,7 +699,6 @@ def render_cve_intel(T: dict):
             st.rerun()
         return
 
-    # metrics
     col1, col2, col3, col4 = st.columns(4)
     with col1: st.metric("TOTAL CVEs", f"{stats.get('total', 0):,}")
     with col2: st.metric("CRITICAL", f"{stats.get('critical', 0):,}")
@@ -709,7 +707,6 @@ def render_cve_intel(T: dict):
 
     st.markdown(f"<div style='margin:1.5rem 0;border-top:1px solid {T['--border']};'></div>", unsafe_allow_html=True)
 
-    # severity chart
     col_left, col_right = st.columns(2)
     with col_left:
         st.markdown(f"<div style='font-family:Rajdhani,sans-serif;font-size:1.1rem;font-weight:600;color:{T['--text-secondary']};letter-spacing:0.1em;text-transform:uppercase;margin-bottom:1rem;'>SEVERITY DISTRIBUTION</div>", unsafe_allow_html=True)
@@ -752,7 +749,6 @@ def render_cve_intel(T: dict):
 
     st.markdown(f"<div style='margin:1.5rem 0;border-top:1px solid {T['--border']};'></div>", unsafe_allow_html=True)
 
-    # CVE feed
     st.markdown(f"<div style='font-family:Rajdhani,sans-serif;font-size:1.1rem;font-weight:600;color:{T['--text-secondary']};letter-spacing:0.1em;text-transform:uppercase;margin-bottom:1rem;'>CVE FEED</div>", unsafe_allow_html=True)
     sev_filter = st.selectbox("FILTER BY SEVERITY", ["ALL", "CRITICAL", "HIGH", "MEDIUM", "LOW"], key="sa_cve_filter")
     filtered_cves = [c for c in cves if sev_filter == "ALL" or c.get("cvss_severity") == sev_filter]
@@ -771,7 +767,6 @@ def render_cve_intel(T: dict):
             <div><span style='color:{T["--text-dim"]};'>CWE:</span> {cwes}</div>
             <div><span style='color:{T["--text-dim"]};'>MITRE:</span> <span style='color:{T["--cyan"]};'>{techniques}</span></div>
             </div>""", unsafe_allow_html=True)
-
 
 def render_analytics(T: dict):
     import httpx
