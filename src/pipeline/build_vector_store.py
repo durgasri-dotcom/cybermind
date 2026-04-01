@@ -21,9 +21,9 @@ def load_gold(path: str | None = None) -> list[dict]:
 def load_cve_documents() -> list[dict]:
     """Load CVEs from SQLite and convert to RAG documents."""
     try:
-        from src.backend.database.engine import SessionLocal, Base, engine
         from src.backend.database import db_models  # noqa: F401
         from src.backend.database.db_models import CveDB
+        from src.backend.database.engine import Base, SessionLocal, engine
 
         Base.metadata.create_all(bind=engine)
         db = SessionLocal()
