@@ -61,13 +61,16 @@ def build_graph(entities: list, T: dict) -> go.Figure:
     node_text, node_hover = [], []
     node_colors, node_sizes = [], []
     edge_x, edge_y = [], []
+    edge_labels = []
 
     n = len(entities)
+    pos = {}
     for i, entity in enumerate(entities):
         angle = 2 * math.pi * i / max(n, 1)
         radius = 0.7 + (0.15 * (i % 3))
         x = radius * math.cos(angle)
         y = radius * math.sin(angle)
+        pos[entity["entity_id"]] = (x, y)
         node_x.append(x)
         node_y.append(y)
         node_text.append(entity["name"])
@@ -81,22 +84,38 @@ def build_graph(entities: list, T: dict) -> go.Figure:
         node_colors.append(T[color_key])
         node_sizes.append(18 + len(entity.get("associated_techniques", [])) * 0.8)
 
+    # ── explicit relationships ─────────────────────────────────────────────────
+    for entity in entities:
+        x, y = pos[entity["entity_id"]]
         for rel in entity.get("relationships", []):
-            target = next(
-                (e for e in entities if e["entity_id"] == rel.get("target_entity_id")), None
-            )
-            if target:
-                t_idx = entities.index(target)
-                t_angle = 2 * math.pi * t_idx / max(n, 1)
-                t_radius = 0.7 + (0.15 * (t_idx % 3))
-                edge_x += [x, t_radius * math.cos(t_angle), None]
-                edge_y += [y, t_radius * math.sin(t_angle), None]
+            target_id = rel.get("target_entity_id")
+            if target_id in pos:
+                tx, ty = pos[target_id]
+                edge_x += [x, tx, None]
+                edge_y += [y, ty, None]
+
+    # ── implicit edges from shared MITRE techniques ───────────────────────────
+    for i, e1 in enumerate(entities):
+        t1 = set(e1.get("associated_techniques", []))
+        if not t1:
+            continue
+        for j, e2 in enumerate(entities):
+            if j <= i:
+                continue
+            t2 = set(e2.get("associated_techniques", []))
+            shared = t1 & t2
+            if shared:
+                x1, y1 = pos[e1["entity_id"]]
+                x2, y2 = pos[e2["entity_id"]]
+                edge_x += [x1, x2, None]
+                edge_y += [y1, y2, None]
 
     edge_trace = go.Scatter(
         x=edge_x, y=edge_y,
         mode="lines",
         line=dict(width=1, color=T["--border"]),
         hoverinfo="none",
+        opacity=0.6,
     )
 
     node_trace = go.Scatter(
@@ -104,11 +123,7 @@ def build_graph(entities: list, T: dict) -> go.Figure:
         mode="markers+text",
         text=node_text,
         textposition="top center",
-        textfont=dict(
-            family="Rajdhani",
-            size=11,
-            color=T["--text-secondary"],
-        ),
+        textfont=dict(family="Rajdhani", size=11, color=T["--text-secondary"]),
         hovertext=node_hover,
         hoverinfo="text",
         marker=dict(
@@ -124,14 +139,22 @@ def build_graph(entities: list, T: dict) -> go.Figure:
             paper_bgcolor="rgba(0,0,0,0)",
             plot_bgcolor=T["--plot-bg"],
             showlegend=False,
-            height=450,
+            height=500,
             margin=dict(t=20, b=20, l=20, r=20),
             xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
             yaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
+            annotations=[
+                dict(
+                    text="Node size = technique count · Lines = shared techniques or explicit relationships",
+                    xref="paper", yref="paper",
+                    x=0.5, y=-0.02,
+                    showarrow=False,
+                    font=dict(family="JetBrains Mono", size=9, color=T["--text-dim"]),
+                )
+            ],
         ),
     )
     return fig
-
 
 def render(T: dict):
     st.markdown(f"""

@@ -7,3 +7,5 @@ venv/
 
 cybermind.db
 *.db
+
+.streamlit/
