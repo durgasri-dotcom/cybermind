@@ -61,7 +61,7 @@ def build_graph(entities: list, T: dict) -> go.Figure:
     node_text, node_hover = [], []
     node_colors, node_sizes = [], []
     edge_x, edge_y = [], []
-    edge_labels = []
+    
 
     n = len(entities)
     pos = {}
