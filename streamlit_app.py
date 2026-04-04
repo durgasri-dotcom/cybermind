@@ -158,8 +158,6 @@ def load_services():
     return embedding_svc, rag_svc, llm_svc
 
 
-# ── Helpers ────────────────────────────────────────────────────────────────────
-
 def status_card(label: str, value: str, color: str, T: dict):
     return f"""
     <div style='background:{T["--bg-card"]};border:1px solid {T["--border"]};
@@ -218,8 +216,6 @@ def step_card(step: dict, T: dict) -> str:
     </div></div></div>"""
 
 
-# ── Tab renderers ──────────────────────────────────────────────────────────────
-
 def render_overview(T: dict, rag_svc, llm_svc):
     st.markdown(f"""
     <div style='margin-bottom:2rem;'>
@@ -236,18 +232,13 @@ def render_overview(T: dict, rag_svc, llm_svc):
     st.markdown(f"<div style='margin:2rem 0;border-top:1px solid {T['--border']};'></div>", unsafe_allow_html=True)
 
     col_left, col_right = st.columns(2)
-
     with col_left:
         st.markdown(f"<div style='font-family:Rajdhani,sans-serif;font-size:1.1rem;font-weight:600;color:{T['--text-secondary']};letter-spacing:0.1em;text-transform:uppercase;margin-bottom:1rem;'>THREAT DISTRIBUTION BY SEVERITY</div>", unsafe_allow_html=True)
         SEV_COLORS = {"critical": T["--red"], "high": T["--orange"], "medium": T["--yellow"], "low": T["--green"], "unknown": T["--text-dim"]}
         by_sev = {s: 0 for s in SEV_COLORS}
-        for a in st.session_state.alerts:
-            pass
         filtered = {k: v for k, v in by_sev.items() if v > 0}
         if not filtered:
             import json
-            from pathlib import Path
-
             from configs.settings import settings as cfg
             p = Path(cfg.mitre_gold_path)
             if p.exists():
@@ -264,8 +255,7 @@ def render_overview(T: dict, rag_svc, llm_svc):
             fig = go.Figure(go.Pie(
                 labels=[s.upper() for s in labels], values=values,
                 marker=dict(colors=colors, line=dict(color=T["--bg-primary"], width=2)),
-                hole=0.6,
-                textfont=dict(family="JetBrains Mono", size=11, color=T["--text-primary"]),
+                hole=0.6, textfont=dict(family="JetBrains Mono", size=11, color=T["--text-primary"]),
                 hovertemplate="<b>%{label}</b><br>%{value} threats<br>%{percent}<extra></extra>",
             ))
             fig.add_annotation(text=f"<b>{sum(values):,}</b><br><span style='font-size:10px'>TOTAL</span>",
@@ -314,7 +304,7 @@ def render_threat_intel(T: dict, rag_svc, llm_svc):
 
     st.markdown(f"""
     <div style='background:{T["--bg-card"]};border:1px solid {T["--border"]};border-radius:8px;padding:1.5rem;margin-bottom:1.5rem;'>
-    <div style='font-family:JetBrains Mono,monospace;font-size:0.65rem;color:{T["--text-dim"]};letter-spacing:0.15em;text-transform:uppercase;margin-bottom:0.8rem;'>ANALYST QUERY</div>
+    <div style='font-family:JetBrains Mono,monospace;font-size:0.65rem;color:{T["--text-dim"]};letter-spacing:0.15em;text-transform:uppercase;margin-bottom:0.8rem;'>SAMPLE QUERIES</div>
     <div style='display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:1rem;'>
     {"".join([f"<span style='background:{T['--cyan-dim']};border:1px solid {T['--cyan']}44;border-radius:4px;padding:0.3rem 0.7rem;font-family:JetBrains Mono,monospace;font-size:0.65rem;color:{T['--cyan']};letter-spacing:0.05em;'>{q}</span>" for q in ["How does APT29 achieve persistence?", "Explain T1059.001 PowerShell techniques", "Common ransomware lateral movement TTPs", "Detect credential dumping with Splunk"]])}
     </div></div>""", unsafe_allow_html=True)
@@ -373,7 +363,6 @@ def render_threat_intel(T: dict, rag_svc, llm_svc):
                     <div style='font-family:JetBrains Mono,monospace;font-size:0.75rem;color:{sc};white-space:nowrap;margin-left:1rem;'>{score:.4f}</div></div>""", unsafe_allow_html=True)
 
         if chunks:
-            st.markdown(f"<div style='margin:1.5rem 0;border-top:1px solid {T['--border']};'></div>", unsafe_allow_html=True)
             with st.expander("◈ VIEW RAW CONTEXT CHUNKS"):
                 for i, chunk in enumerate(chunks, 1):
                     st.markdown(f"""<div style='background:{T["--input-bg"]};border:1px solid {T["--border"]};border-radius:4px;padding:0.8rem;margin-bottom:0.5rem;'>
@@ -420,7 +409,6 @@ def render_alerts(T: dict, llm_svc):
                 p_color = P_COLORS.get(priority, T["--text-dim"])
                 p_label = P_LABELS.get(priority, priority)
                 s_icon = S_ICONS.get(status, "?")
-
                 with st.expander(f"[{p_label}]  {alert['title']}"):
                     st.markdown(f"""<div style='display:flex;gap:0.6rem;margin-bottom:1rem;flex-wrap:wrap;align-items:center;'>
                     <span style='background:{p_color}22;border:1px solid {p_color}55;border-radius:4px;padding:0.2rem 0.6rem;font-family:JetBrains Mono,monospace;font-size:0.65rem;color:{p_color};letter-spacing:0.08em;'>{priority} · {p_label}</span>
@@ -531,13 +519,11 @@ def render_playbooks(T: dict, rag_svc, llm_svc):
                 alert_context = context.strip()
                 if rag_context:
                     alert_context += "\n\nRelevant context:\n" + "\n\n".join(rag_context[:2])
-
                 with st.spinner("Generating playbook..."):
                     raw, _ = llm_svc.generate_playbook(
                         threat_id=threat_id.strip(), threat_name=threat_id.strip(),
                         alert_context=alert_context, available_tools=tools,
                     )
-
                 from src.backend.routers.playbooks import _parse_steps
                 steps = _parse_steps(raw)
                 pb = {
@@ -550,7 +536,6 @@ def render_playbooks(T: dict, rag_svc, llm_svc):
                     "generated_at": datetime.datetime.now().isoformat(),
                 }
                 st.session_state.playbooks.append(pb)
-
                 st.markdown(f"""<div style='background:{T["--success-bg"]};border:1px solid {T["--success-border"]};border-left:3px solid {T["--green"]};border-radius:6px;padding:0.8rem 1rem;font-family:JetBrains Mono,monospace;font-size:0.75rem;color:{T["--green"]};margin-bottom:1.5rem;'>✓ PLAYBOOK #{pb["id"]} GENERATED SUCCESSFULLY</div>
                 <div style='font-family:Rajdhani,sans-serif;font-size:1.3rem;font-weight:700;color:{T["--text-primary"]};margin-bottom:0.3rem;'>{pb["title"]}</div>
                 <div style='font-family:Inter,sans-serif;font-size:0.88rem;color:{T["--text-secondary"]};margin-bottom:1.5rem;line-height:1.6;'>{pb["objective"]}</div>""", unsafe_allow_html=True)
@@ -579,7 +564,7 @@ def render_entity_graph(T: dict, llm_svc):
         if not entities:
             st.markdown(f"<div style='background:{T['--bg-card']};border:1px solid {T['--border']};border-radius:8px;padding:3rem;text-align:center;font-family:JetBrains Mono,monospace;font-size:0.8rem;color:{T['--text-dim']};'>NO ENTITIES — Add entities from the Add Entity tab</div>", unsafe_allow_html=True)
         else:
-            st.markdown(f"<div style='font-family:JetBrains Mono,monospace;font-size:0.65rem;color:{T['--text-dim']};letter-spacing:0.1em;margin-bottom:0.8rem;'>{len(entities)} ENTITIES · NODE SIZE = TECHNIQUE COUNT</div>", unsafe_allow_html=True)
+            st.markdown(f"<div style='font-family:JetBrains Mono,monospace;font-size:0.65rem;color:{T['--text-dim']};letter-spacing:0.1em;margin-bottom:0.8rem;'>{len(entities)} ENTITIES · NODE SIZE = TECHNIQUE COUNT · LINES = SHARED TECHNIQUES</div>", unsafe_allow_html=True)
             legend_cols = st.columns(5)
             for col, (etype, color_key) in zip(legend_cols, ENTITY_TYPE_COLORS.items()):
                 with col:
@@ -591,19 +576,45 @@ def render_entity_graph(T: dict, llm_svc):
                 angle = 2 * math.pi * i / max(n, 1)
                 radius = 0.7 + (0.15 * (i % 3))
                 x, y = radius * math.cos(angle), radius * math.sin(angle)
-                node_x.append(x); node_y.append(y)
+                node_x.append(x)
+                node_y.append(y)
                 node_text.append(entity["name"])
-                node_hover.append(f"<b>{entity['name']}</b><br>{entity.get('entity_type','').upper()}<br>ID: {entity['entity_id']}")
+                node_hover.append(f"<b>{entity['name']}</b><br>{entity.get('entity_type','').upper()}<br>ID: {entity['entity_id']}<br>Techniques: {len(entity.get('associated_techniques', []))}")
                 color_key = ENTITY_TYPE_COLORS.get(entity.get("entity_type", ""), "--text-secondary")
                 node_colors.append(T[color_key])
                 node_sizes.append(18 + len(entity.get("associated_techniques", [])) * 0.8)
 
-            fig = go.Figure(go.Scatter(x=node_x, y=node_y, mode="markers+text", text=node_text,
+            # ── build edges from shared techniques + explicit relationships ──
+            pos_map = {entities[i]["entity_id"]: (node_x[i], node_y[i]) for i in range(len(entities))}
+            edge_x_list, edge_y_list = [], []
+            for ii, e1 in enumerate(entities):
+                t1 = set(e1.get("associated_techniques", []))
+                for jj, e2 in enumerate(entities):
+                    if jj <= ii:
+                        continue
+                    shared = t1 & set(e2.get("associated_techniques", []))
+                    if shared:
+                        x1, y1 = pos_map[e1["entity_id"]]
+                        x2, y2 = pos_map[e2["entity_id"]]
+                        edge_x_list += [x1, x2, None]
+                        edge_y_list += [y1, y2, None]
+                for rel in e1.get("relationships", []):
+                    tid = rel.get("target_entity_id")
+                    if tid in pos_map:
+                        x1, y1 = pos_map[e1["entity_id"]]
+                        x2, y2 = pos_map[tid]
+                        edge_x_list += [x1, x2, None]
+                        edge_y_list += [y1, y2, None]
+
+            edge_trace = go.Scatter(x=edge_x_list, y=edge_y_list, mode="lines",
+                line=dict(width=1, color=T["--border"]), hoverinfo="none", opacity=0.6)
+            node_trace = go.Scatter(x=node_x, y=node_y, mode="markers+text", text=node_text,
                 textposition="top center", textfont=dict(family="Rajdhani", size=11, color=T["--text-secondary"]),
                 hovertext=node_hover, hoverinfo="text",
-                marker=dict(size=node_sizes, color=node_colors, line=dict(width=2, color=T["--bg-primary"]))))
+                marker=dict(size=node_sizes, color=node_colors, line=dict(width=2, color=T["--bg-primary"])))
+            fig = go.Figure(data=[edge_trace, node_trace])
             fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor=T["--plot-bg"],
-                showlegend=False, height=450, margin=dict(t=20, b=20, l=20, r=20),
+                showlegend=False, height=500, margin=dict(t=20, b=20, l=20, r=20),
                 xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
                 yaxis=dict(showgrid=False, zeroline=False, showticklabels=False))
             st.plotly_chart(fig, use_container_width=True)
@@ -621,12 +632,10 @@ def render_entity_graph(T: dict, llm_svc):
                     st.markdown(f"""<div style='display:flex;gap:0.6rem;margin-bottom:1rem;'>
                     <span style='background:{color}22;border:1px solid {color}55;border-radius:4px;padding:0.2rem 0.6rem;font-family:JetBrains Mono,monospace;font-size:0.65rem;color:{color};'>{entity["entity_id"]}</span></div>
                     <div style='font-family:Inter,sans-serif;font-size:0.88rem;color:{T["--text-secondary"]};margin-bottom:1rem;line-height:1.6;'>{entity.get("description","")[:400]}</div>""", unsafe_allow_html=True)
-
                     techniques = entity.get("associated_techniques", [])
                     if techniques:
                         tags_html = " ".join([f"<span style='background:{T['--cyan-dim']};border:1px solid {T['--cyan']}33;border-radius:3px;padding:0.1rem 0.4rem;font-family:JetBrains Mono,monospace;font-size:0.6rem;color:{T['--cyan']};'>{t}</span>" for t in techniques[:10]])
                         st.markdown(f"<div style='font-family:JetBrains Mono,monospace;font-size:0.6rem;color:{T['--text-dim']};letter-spacing:0.1em;margin-bottom:0.5rem;'>ASSOCIATED TECHNIQUES</div><div style='display:flex;gap:0.3rem;flex-wrap:wrap;margin-bottom:1rem;'>{tags_html}</div>", unsafe_allow_html=True)
-
                     if st.button("⟶ AI ENRICH", key=f"enrich_{entity['entity_id']}"):
                         with st.spinner("Generating threat profile..."):
                             profile, _ = llm_svc.generate_entity_profile(
@@ -665,6 +674,8 @@ def render_entity_graph(T: dict, llm_svc):
                 })
                 st.markdown(f"<div style='background:{T['--success-bg']};border:1px solid {T['--success-border']};border-left:3px solid {T['--green']};border-radius:6px;padding:0.8rem 1rem;font-family:JetBrains Mono,monospace;font-size:0.75rem;color:{T['--green']};'>✓ ENTITY '{name.upper()}' ADDED SUCCESSFULLY</div>", unsafe_allow_html=True)
                 st.rerun()
+
+
 def render_cve_intel(T: dict):
     import httpx
     st.markdown(f"""
@@ -751,7 +762,6 @@ def render_cve_intel(T: dict):
             st.plotly_chart(fig, use_container_width=True)
 
     st.markdown(f"<div style='margin:1.5rem 0;border-top:1px solid {T['--border']};'></div>", unsafe_allow_html=True)
-
     st.markdown(f"<div style='font-family:Rajdhani,sans-serif;font-size:1.1rem;font-weight:600;color:{T['--text-secondary']};letter-spacing:0.1em;text-transform:uppercase;margin-bottom:1rem;'>CVE FEED</div>", unsafe_allow_html=True)
     sev_filter = st.selectbox("FILTER BY SEVERITY", ["ALL", "CRITICAL", "HIGH", "MEDIUM", "LOW"], key="sa_cve_filter")
     filtered_cves = [c for c in cves if sev_filter == "ALL" or c.get("cvss_severity") == sev_filter]
@@ -771,99 +781,7 @@ def render_cve_intel(T: dict):
             <div><span style='color:{T["--text-dim"]};'>MITRE:</span> <span style='color:{T["--cyan"]};'>{techniques}</span></div>
             </div>""", unsafe_allow_html=True)
 
-def render_analytics(T: dict):
-    import httpx
-    st.markdown(f"""
-    <div style='margin-bottom:2rem;'>
-    <div style='font-family:Rajdhani,sans-serif;font-size:2rem;font-weight:700;color:{T["--text-primary"]};letter-spacing:0.05em;'>API ANALYTICS</div>
-    <div style='font-family:JetBrains Mono,monospace;font-size:0.7rem;color:{T["--text-dim"]};letter-spacing:0.15em;margin-top:0.3rem;'>REQUEST OBSERVABILITY · LATENCY TRACKING · ENDPOINT USAGE</div>
-    </div>""", unsafe_allow_html=True)
 
-    stats = None
-    recent = []
-    backend_online = False
-    try:
-        r = httpx.get(f"{BACKEND_URL}/analytics/requests", timeout=8)
-        if r.status_code == 200:
-            stats = r.json()
-            backend_online = True
-        r2 = httpx.get(f"{BACKEND_URL}/analytics/requests/recent", params={"limit": 20}, timeout=8)
-        if r2.status_code == 200:
-            recent = r2.json().get("requests", [])
-    except Exception:
-        pass
-
-    if not backend_online:
-        st.markdown(f"""
-        <div style='background:{T["--warn-bg"]};border:1px solid {T["--warn-border"]};
-        border-left:3px solid {T["--yellow"]};border-radius:8px;padding:1.2rem 1.5rem;'>
-        <div style='font-family:Rajdhani,sans-serif;font-size:1.1rem;font-weight:700;
-        color:{T["--yellow"]};margin-bottom:0.4rem;'>⏳ BACKEND WARMING UP</div>
-        <div style='font-family:JetBrains Mono,monospace;font-size:0.75rem;color:{T["--text-secondary"]};line-height:1.6;'>
-        Analytics requires the CyberMind backend. Click refresh after ~30 seconds.
-        </div></div>""", unsafe_allow_html=True)
-        if st.button("↻ REFRESH", key="analytics_refresh"):
-            st.rerun()
-        return
-
-    col1, col2, col3, col4 = st.columns(4)
-    by_status = stats.get("by_status_code", {})
-    with col1: st.metric("TOTAL REQUESTS", f"{stats.get('total_requests', 0):,}")
-    with col2: st.metric("AVG LATENCY", f"{stats.get('avg_latency_ms', 0):.1f}ms")
-    with col3: st.metric("2xx SUCCESS", f"{by_status.get('200', 0) + by_status.get('201', 0):,}")
-    with col4: st.metric("ERRORS", f"{by_status.get('500', 0) + by_status.get('404', 0):,}")
-
-    st.markdown(f"<div style='margin:1.5rem 0;border-top:1px solid {T['--border']};'></div>", unsafe_allow_html=True)
-
-    col_left, col_right = st.columns(2)
-    with col_left:
-        st.markdown(f"<div style='font-family:Rajdhani,sans-serif;font-size:1.1rem;font-weight:600;color:{T['--text-secondary']};letter-spacing:0.1em;text-transform:uppercase;margin-bottom:1rem;'>REQUESTS BY METHOD</div>", unsafe_allow_html=True)
-        by_method = stats.get("by_method", {})
-        if by_method:
-            METHOD_COLORS = {"GET": T["--cyan"], "POST": T["--green"], "PATCH": T["--yellow"], "DELETE": T["--red"]}
-            fig = go.Figure(go.Bar(
-                x=list(by_method.keys()), y=list(by_method.values()),
-                marker=dict(color=[METHOD_COLORS.get(m, T["--text-dim"]) for m in by_method.keys()]),
-                hovertemplate="<b>%{x}</b><br>%{y} requests<extra></extra>",
-            ))
-            fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-                font=dict(family="JetBrains Mono", size=10, color=T["--text-secondary"]),
-                xaxis=dict(gridcolor=T["--border"]), yaxis=dict(gridcolor=T["--border"]),
-                margin=dict(t=10, b=10, l=10, r=10), height=250)
-            st.plotly_chart(fig, use_container_width=True)
-
-    with col_right:
-        st.markdown(f"<div style='font-family:Rajdhani,sans-serif;font-size:1.1rem;font-weight:600;color:{T['--text-secondary']};letter-spacing:0.1em;text-transform:uppercase;margin-bottom:1rem;'>TOP ENDPOINTS</div>", unsafe_allow_html=True)
-        top = stats.get("top_endpoints", [])
-        if top:
-            paths = [e["path"].replace("/api/v1/", "") for e in top]
-            fig = go.Figure(go.Bar(
-                x=[e["count"] for e in top], y=paths, orientation="h",
-                marker=dict(color=T["--cyan"]),
-                hovertemplate="<b>%{y}</b><br>%{x} requests<extra></extra>",
-            ))
-            fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-                font=dict(family="JetBrains Mono", size=10, color=T["--text-secondary"]),
-                xaxis=dict(gridcolor=T["--border"]), yaxis=dict(gridcolor=T["--border"]),
-                margin=dict(t=10, b=10, l=10, r=10), height=250)
-            st.plotly_chart(fig, use_container_width=True)
-
-    st.markdown(f"<div style='margin:1.5rem 0;border-top:1px solid {T['--border']};'></div>", unsafe_allow_html=True)
-    st.markdown(f"<div style='font-family:Rajdhani,sans-serif;font-size:1.1rem;font-weight:600;color:{T['--text-secondary']};letter-spacing:0.1em;text-transform:uppercase;margin-bottom:1rem;'>RECENT REQUEST LOG</div>", unsafe_allow_html=True)
-
-    STATUS_COLORS = {2: T["--green"], 3: T["--yellow"], 4: T["--orange"], 5: T["--red"]}
-    for req in recent:
-        code = req.get("status_code", 0)
-        color = STATUS_COLORS.get(code // 100, T["--text-dim"])
-        st.markdown(f"""
-        <div style='background:{T["--bg-card"]};border:1px solid {T["--border"]};border-radius:4px;
-        padding:0.4rem 0.8rem;margin-bottom:0.3rem;display:flex;justify-content:space-between;'>
-        <div style='font-family:JetBrains Mono,monospace;font-size:0.75rem;color:{T["--text-secondary"]};'>
-        <span style='color:{T["--cyan"]};margin-right:0.5rem;'>{req.get("method")}</span>{req.get("path")}</div>
-        <div style='display:flex;gap:1rem;font-family:JetBrains Mono,monospace;font-size:0.75rem;'>
-        <span style='color:{color};'>{code}</span>
-        <span style='color:{T["--text-dim"]};'>{req.get("latency_ms", 0):.1f}ms</span></div></div>""",
-        unsafe_allow_html=True)
 def render_analytics(T: dict):
     import httpx
     st.markdown(f"""
@@ -957,7 +875,7 @@ def render_analytics(T: dict):
         <span style='color:{color};'>{code}</span>
         <span style='color:{T["--text-dim"]};'>{req.get("latency_ms", 0):.1f}ms</span></div></div>""",
         unsafe_allow_html=True)
-# ── Main ───────────────────────────────────────────────────────────────────────
+
 
 def main():
     theme = st.session_state.theme
