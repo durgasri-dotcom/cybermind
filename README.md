@@ -8,7 +8,7 @@
 
 CyberMind is a production-grade AI threat intelligence platform that combines RAG (Retrieval-Augmented Generation), FAISS vector search, LLM-powered analysis, live CVE ingestion from NVD, and full API observability to help security teams understand, triage, and respond to cyber threats in real time.
 
-Built on 691 real MITRE ATT&CK techniques indexed into a FAISS vector store, CyberMind answers natural language security queries, ingests live CVEs from the NVD API with automatic MITRE technique mapping, generates structured incident response playbooks, and persists all data to a production-grade SQLite backend with Alembic schema migrations-all powered by LLaMA 3.3 70B via Groq.
+Built on 691 real MITRE ATT&CK techniques indexed into a FAISS vector store, CyberMind answers natural language security queries, ingests live CVEs from the NVD API with automatic MITRE technique mapping, generates structured incident response playbooks, and persists all data to a production PostgreSQL database with Alembic schema migrations-all powered by LLaMA 3.3 70B via Groq.
 
 ---
 
@@ -59,9 +59,9 @@ flowchart TD
 Ask anything about MITRE ATT&CK techniques, threat actors, or CVEs in natural language. CyberMind embeds your query, retrieves the top-K semantically similar chunks from the FAISS index, and generates a structured analyst-grade response using LLaMA 3.3.
 
 **Live CVE Ingestion from NVD**
-Fetch real CVEs from the NVD API by recency, severity, or keyword. Each CVE is automatically scored with CVSS, CWE weaknesses are extracted, and techniques are mapped to MITRE ATT&CK using heuristic CWE-to-TTP analysis. All data persisted to SQLite with upsert logic.
+Fetch real CVEs from the NVD API by recency, severity, or keyword. Each CVE is automatically scored with CVSS, CWE weaknesses are extracted, and techniques are mapped to MITRE ATT&CK using heuristic CWE-to-TTP analysis. All data persisted to PostgreSQL with upsert logic.
 
-**Persistent SQLite Backend with Alembic Migrations**
+**Production PostgreSQL Backend with Alembic Migrations**
 All alerts, playbooks, entities, CVEs, and request logs are persisted to SQLite via SQLAlchemy ORM. Schema versioned with Alembic fully reproducible with `alembic upgrade head`. No more data loss on restart.
 
 **AI-Generated Incident Response Playbooks**
