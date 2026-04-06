@@ -6,20 +6,25 @@ from fastapi import APIRouter, Request
 from sqlalchemy import text
 
 from configs.settings import settings
-from src.backend.database.engine import engine
+from src.backend.database.engine import DATABASE_URL, engine
 
 router = APIRouter()
-
 
 @router.get("/health")
 async def health_check(request: Request):
     rag_svc = getattr(request.app.state, "rag_service", None)
 
+    # Detect database backend
+    if DATABASE_URL.startswith("postgresql"):
+        db_backend = "postgresql"
+    else:
+        db_backend = "sqlite"
+
     # DB health check
     try:
         with engine.connect() as conn:
             conn.execute(text("SELECT 1"))
-        db_status = {"status": "ok", "backend": "sqlite", "connected": True}
+        db_status = {"status": "ok", "backend": db_backend, "connected": True}
     except Exception as e:
         db_status = {"status": "error", "connected": False, "detail": str(e)}
 
