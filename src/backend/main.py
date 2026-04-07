@@ -1,9 +1,7 @@
 from __future__ import annotations
 
-import threading
 import time
 from contextlib import asynccontextmanager
-from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -17,40 +15,6 @@ from src.backend.routers import alerts, analytics, cves, entities, health, intel
 
 configure_logging()
 logger = get_logger(__name__)
-
-
-def _rebuild_faiss_background(app: FastAPI) -> None:
-    try:
-        from src.backend.services.mitre_loader import load_normalized
-        from src.backend.services.rag_service import get_rag_service
-        rag_svc = get_rag_service()
-        index_path = Path(settings.faiss_index_path)
-
-        if index_path.exists():
-            logger.info("faiss_index_found", path=str(index_path))
-            rag_svc.load_index()
-        else:
-            logger.info("faiss_index_missing_rebuilding", path=str(index_path))
-            silver_path = Path(settings.mitre_silver_path)
-            if silver_path.exists():
-                techniques = load_normalized()[:200]
-                documents = [{
-                        "threat_id": t["threat_id"],
-                        "text": t["text"],
-                        "source": "MITRE ATT&CK",
-                        "metadata": t.get("metadata", {}),
-                    }
-                    for t in techniques
-                ]
-                num_chunks = rag_svc.build_index_from_documents(documents)
-                logger.info("faiss_index_rebuilt", num_chunks=num_chunks)
-            else:
-                logger.warning("silver_json_missing", path=str(silver_path))
-
-        app.state.rag_service = rag_svc
-        logger.info("rag_ready", vectors=rag_svc.num_vectors, is_ready=rag_svc.is_ready)
-    except Exception as e:
-        logger.error("rag_startup_failed", error=str(e))
 
 
 @asynccontextmanager
@@ -103,11 +67,16 @@ async def lifespan(app: FastAPI):
     scheduler.start()
     logger.info("scheduler_started", jobs=["cve_ingest"], interval_hours=24)
 
-    # -- FAISS rebuild in background thread so port binds immediately --
-    app.state.rag_service = None
-    t = threading.Thread(target=_rebuild_faiss_background, args=(app,), daemon=True)
-    t.start()
-    logger.info("faiss_rebuild_thread_started")
+    # -- RAG: load from PostgreSQL embeddings (no sentence-transformers at startup) --
+    try:
+        from src.backend.services.rag_service import get_rag_service
+        rag_svc = get_rag_service()
+        rag_svc.load_index()
+        app.state.rag_service = rag_svc
+        logger.info("rag_ready", vectors=rag_svc.num_vectors, is_ready=rag_svc.is_ready)
+    except Exception as e:
+        logger.error("rag_startup_failed", error=str(e))
+        app.state.rag_service = None
 
     # -- LLM service --
     from src.backend.services.llm_service import get_llm_service
@@ -195,6 +164,3 @@ if __name__ == "__main__":
         reload=settings.debug,
         log_level=settings.log_level.lower(),
     )
-
-
-

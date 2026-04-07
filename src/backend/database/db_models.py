@@ -86,3 +86,13 @@ class RequestLogDB(Base):
     client_ip = Column(String(100), nullable=True)
     user_agent = Column(String(500), nullable=True)
     timestamp = Column(DateTime(timezone=True), server_default=func.now(), index=True)
+class EmbeddingDB(Base):
+    __tablename__ = "embeddings"
+    id = Column(Integer, primary_key=True, index=True)
+    chunk_id = Column(String(255), nullable=False, unique=True, index=True)
+    threat_id = Column(String(255), nullable=False, index=True)
+    chunk_text = Column(Text, nullable=False)
+    vector = Column(JSON, nullable=False)
+    source = Column(String(255), default="MITRE ATT&CK")
+    metadata_ = Column(JSON, default=dict)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())

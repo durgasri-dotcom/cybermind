@@ -32,7 +32,31 @@ class RAGService:
         if settings.use_pinecone:
             self._load_pinecone()
         else:
-            self._load_faiss()
+            index_path = Path(settings.faiss_index_path)
+            if index_path.exists():
+                self._load_faiss()
+            else:
+                self._load_from_postgres()
+
+    def _load_from_postgres(self) -> None:
+        import numpy as np
+
+        from src.backend.database.db_models import EmbeddingDB
+        from src.backend.database.engine import SessionLocal
+        db = SessionLocal()
+        rows = db.query(EmbeddingDB).all()
+        db.close()
+        if not rows:
+            logger.warning("no_embeddings_in_postgres")
+            self._is_loaded = False
+            return
+        self._chunks = [r.chunk_text for r in rows]
+        self._metadata = [{"threat_id": r.threat_id, "source": r.source, **r.metadata_} for r in rows]
+        vectors = np.array([r.vector for r in rows], dtype=np.float32)
+        self._index = faiss.IndexFlatIP(vectors.shape[1])
+        self._index.add(vectors)
+        self._is_loaded = True
+        logger.info("faiss_loaded_from_postgres", num_vectors=self._index.ntotal)
 
     def _load_faiss(self) -> None:
         index_path = Path(settings.faiss_index_path)
@@ -206,3 +230,4 @@ def get_rag_service() -> RAGService:
     if _rag_instance is None:
         _rag_instance = RAGService()
     return _rag_instance
+
