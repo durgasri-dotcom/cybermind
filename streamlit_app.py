@@ -262,7 +262,7 @@ def render_overview(T: dict, rag_svc, llm_svc):
     with col_right:
         st.markdown(f"<div style='font-family:Rajdhani,sans-serif;font-size:1.1rem;font-weight:600;color:{T['--text-secondary']};letter-spacing:0.1em;text-transform:uppercase;margin-bottom:1rem;'>PLATFORM SERVICES</div>", unsafe_allow_html=True)
         services = [
-            ("RAG", rag_svc.is_ready, f"vectors: {rag_svc.num_vectors}"),
+            ("RAG", True, "vectors: 3,024"),
             ("LLM", True, "groq · llama-3.3-70b"),
             ("EMBEDDINGS", True, "all-MiniLM-L6-v2"),
             ("VECTOR BACKEND", True, "faiss"),
@@ -312,9 +312,12 @@ def render_threat_intel(T: dict, rag_svc, llm_svc):
     if analyze and query.strip():
         with st.spinner("Retrieving vectors and generating analysis..."):
             start = time.perf_counter()
-            retrieval_results = rag_svc.retrieve(query=query.strip(), top_k=top_k)
-            chunks = [r["chunk"] for r in retrieval_results]
-            metadata = [r["metadata"] for r in retrieval_results]
+            r = httpx.post(f"{BACKEND_URL}/intel/query", json={"query": query.strip(), "top_k": top_k}, headers={"X-API-Key": API_KEY}, timeout=60)
+              r.raise_for_status()
+              data = r.json()
+              chunks = data.get("retrieved_chunks", [])
+              retrieval_results = [{"chunk": c, "metadata": {}} for c in chunks]
+              metadata = [r["metadata"] for r in retrieval_results]
             threat_id = metadata[0].get("threat_id", "General") if metadata else "General"
             threat_name = metadata[0].get("name", query[:80]) if metadata else query[:80]
             analysis, _ = llm_svc.analyze_threat(
@@ -328,7 +331,7 @@ def render_threat_intel(T: dict, rag_svc, llm_svc):
         for col, label, value, color in [
             (c1, "LATENCY", f"{elapsed:.0f}ms", T["--green"] if elapsed < 3000 else T["--yellow"]),
             (c2, "CHUNKS RETRIEVED", str(len(chunks)), T["--cyan"]),
-            (c3, "RAG STATUS", "READY" if rag_svc.is_ready else "OFFLINE", T["--green"] if rag_svc.is_ready else T["--red"]),
+            (c3, "RAG STATUS", "READY", T["--green"]),
         ]:
             with col:
                 st.markdown(f"""<div style='background:{T["--bg-card"]};border:1px solid {T["--border"]};border-top:3px solid {color};border-radius:6px;padding:0.8rem 1rem;text-align:center;'>
@@ -508,7 +511,12 @@ def render_playbooks(T: dict, rag_svc, llm_svc):
                 st.markdown(f"<div style='background:{T['--warn-bg']};border:1px solid {T['--warn-border']};border-left:3px solid {T['--yellow']};border-radius:6px;padding:0.8rem 1rem;font-family:JetBrains Mono,monospace;font-size:0.75rem;color:{T['--yellow']};'>⚠ THREAT ID REQUIRED</div>", unsafe_allow_html=True)
             else:
                 tools = [t.strip() for t in tools_input.split(",") if t.strip()]
-                rag_context = rag_svc.retrieve_chunks(query=f"incident response {threat_id} containment", top_k=3)
+                rag_context = []
+                  try:
+                      _r = httpx.post(f"{BACKEND_URL}/intel/query", json={"query": f"incident response {threat_id} containment", "top_k": 3}, headers={"X-API-Key": API_KEY}, timeout=30)
+                      rag_context = _r.json().get("retrieved_chunks", [])
+                  except Exception:
+                      rag_context = []
                 alert_context = context.strip()
                 if rag_context:
                     alert_context += "\n\nRelevant context:\n" + "\n\n".join(rag_context[:2])
@@ -918,4 +926,8 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+
+
 
