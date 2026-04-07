@@ -144,18 +144,11 @@ hr {{ border-color: var(--border) !important; }}
 """
 
 
-@st.cache_resource(show_spinner="Loading CyberMind AI engine...")
+@st.cache_resource()
 def load_services():
-    from configs.logging_config import configure_logging
-    configure_logging()
-    from src.backend.services.embedding_service import get_embedding_service
     from src.backend.services.llm_service import get_llm_service
-    from src.backend.services.rag_service import get_rag_service
-    embedding_svc = get_embedding_service()
-    rag_svc = get_rag_service()
-    rag_svc.load_index()
     llm_svc = get_llm_service()
-    return embedding_svc, rag_svc, llm_svc
+    return None, None, llm_svc
 
 
 def status_card(label: str, value: str, color: str, T: dict):
