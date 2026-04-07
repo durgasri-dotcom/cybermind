@@ -1,5 +1,6 @@
 import sys
 from pathlib import Path
+from tracemalloc import start
 
 sys.path.insert(0, str(Path(__file__).parent))
 
@@ -310,22 +311,19 @@ def render_threat_intel(T: dict, rag_svc, llm_svc):
         analyze = st.button("⟶ ANALYZE", type="primary", use_container_width=True)
 
     if analyze and query.strip():
-        with st.spinner("Retrieving vectors and generating analysis..."):
-            start = time.perf_counter()
-            r = httpx.post(f"{BACKEND_URL}/intel/query", json={"query": query.strip(), "top_k": top_k}, headers={"X-API-Key": API_KEY}, timeout=60)
-            r.raise_for_status()
-            data = r.json()
-            chunks = data.get("retrieved_chunks", [])
-            retrieval_results = [{"chunk": c, "metadata": {}} for c in chunks]
-            metadata = [r["metadata"] for r in retrieval_results]
-            threat_id = metadata[0].get("threat_id", "General") if metadata else "General"
-            threat_name = metadata[0].get("name", query[:80]) if metadata else query[:80]
-            analysis, _ = llm_svc.analyze_threat(
-                threat_id=threat_id, threat_name=threat_name,
-                threat_description=chunks[0] if chunks else query,
-                rag_context=chunks, analyst_query=query,
-            )
-            elapsed = (time.perf_counter() - start) * 1000
+        start = time.perf_counter()
+        # First get chunks via query endpoint
+        r = httpx.post(f"{BACKEND_URL}/intel/query", json={"query": query.strip(), "top_k": top_k}, headers={"X-API-Key": API_KEY}, timeout=60)
+        r.raise_for_status()
+        data = r.json()
+        chunks = data.get("retrieved_chunks", [])
+        sources = data.get("sources", [])
+        retrieval_results = [{"chunk": c, "metadata": {}} for c in chunks]
+        metadata = [r["metadata"] for r in retrieval_results]
+        threat_id = data.get("similar_threats", [{}])[0].get("threat_id", "General") if data.get("similar_threats") else "General"
+        threat_name = data.get("similar_threats", [{}])[0].get("name", query[:80]) if data.get("similar_threats") else query[:80]
+        analysis = data.get("analysis", "")
+        elapsed = (time.perf_counter() - start) * 1000
 
         c1, c2, c3 = st.columns(3)
         for col, label, value, color in [
