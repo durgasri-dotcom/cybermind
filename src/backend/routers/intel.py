@@ -28,6 +28,7 @@ class SimilarThreat(BaseModel):
 
 
 class IntelQueryResponse(BaseModel):
+    sources: list[str] = []
     query: str
     analysis: str
     retrieved_chunks: list[str]
@@ -108,6 +109,7 @@ async def query_threat_intel(
         analysis=analysis,
         retrieved_chunks=chunks,
         similar_threats=similar_threats,
+        sources=[f"{r['metadata'].get('threat_id','')} - {r['metadata'].get('name','')} (score: {round(r['score'],3)})" for r in mitre_results],
         model_used=settings.llm_model,
         num_chunks_retrieved=len(chunks),
         latency_ms=round(total_latency, 2),
@@ -147,3 +149,4 @@ async def find_similar_threats(
         ],
         "num_results": len(results),
     }
+
