@@ -33,9 +33,8 @@ def _rebuild_faiss_background(app: FastAPI) -> None:
             logger.info("faiss_index_missing_rebuilding", path=str(index_path))
             silver_path = Path(settings.mitre_silver_path)
             if silver_path.exists():
-                techniques = load_normalized()
-                documents = [
-                    {
+                techniques = load_normalized()[:200]
+                documents = [{
                         "threat_id": t["threat_id"],
                         "text": t["text"],
                         "source": "MITRE ATT&CK",
@@ -196,3 +195,6 @@ if __name__ == "__main__":
         reload=settings.debug,
         log_level=settings.log_level.lower(),
     )
+
+
+
