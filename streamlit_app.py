@@ -313,11 +313,11 @@ def render_threat_intel(T: dict, rag_svc, llm_svc):
         with st.spinner("Retrieving vectors and generating analysis..."):
             start = time.perf_counter()
             r = httpx.post(f"{BACKEND_URL}/intel/query", json={"query": query.strip(), "top_k": top_k}, headers={"X-API-Key": API_KEY}, timeout=60)
-              r.raise_for_status()
-              data = r.json()
-              chunks = data.get("retrieved_chunks", [])
-              retrieval_results = [{"chunk": c, "metadata": {}} for c in chunks]
-              metadata = [r["metadata"] for r in retrieval_results]
+            r.raise_for_status()
+            data = r.json()
+            chunks = data.get("retrieved_chunks", [])
+            retrieval_results = [{"chunk": c, "metadata": {}} for c in chunks]
+            metadata = [r["metadata"] for r in retrieval_results]
             threat_id = metadata[0].get("threat_id", "General") if metadata else "General"
             threat_name = metadata[0].get("name", query[:80]) if metadata else query[:80]
             analysis, _ = llm_svc.analyze_threat(
