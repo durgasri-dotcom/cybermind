@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import time
 from functools import lru_cache
 
 import numpy as np
@@ -18,11 +17,10 @@ class EmbeddingService:
 
     def _ensure_loaded(self) -> None:
         if self._model is None:
-            from sentence_transformers import SentenceTransformer
-            start = time.perf_counter()
-            self._model = SentenceTransformer(settings.embedding_model)
-            elapsed = (time.perf_counter() - start) * 1000
-            logger.info("embedding_model_loaded", model=settings.embedding_model, latency_ms=round(elapsed, 2))
+            from fastembed import TextEmbedding
+            logger.info("loading_fastembed_model", model=settings.embedding_model)
+            self._model = TextEmbedding(model_name=settings.embedding_model)
+            logger.info("fastembed_model_loaded", model=settings.embedding_model)
 
     @property
     def dimension(self) -> int:
@@ -30,18 +28,15 @@ class EmbeddingService:
 
     def embed_text(self, text: str) -> np.ndarray:
         self._ensure_loaded()
-        return self._model.encode(text, normalize_embeddings=True)
+        vectors = list(self._model.embed([text]))
+        return np.array(vectors[0], dtype=np.float32)
 
     def embed_batch(self, texts: list[str], batch_size: int = 64) -> np.ndarray:
         if not texts:
             return np.empty((0, self._dimension), dtype=np.float32)
         self._ensure_loaded()
-        return self._model.encode(
-            texts,
-            batch_size=batch_size,
-            normalize_embeddings=True,
-            show_progress_bar=len(texts) > 100,
-        )
+        vectors = list(self._model.embed(texts))
+        return np.array(vectors, dtype=np.float32)
 
     def compute_similarity(self, vec_a: np.ndarray, vec_b: np.ndarray) -> float:
         return float(np.dot(vec_a, vec_b))
