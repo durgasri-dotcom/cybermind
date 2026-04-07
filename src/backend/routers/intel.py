@@ -134,14 +134,13 @@ async def stream_threat_intel(
     threat_name = metadata[0].get("name", body.query[:80]) if metadata else body.query[:80]
 
     def token_stream():
-        for token in llm_svc.stream_analyze_threat(
+        yield from llm_svc.stream_analyze_threat(
             threat_id=threat_id,
             threat_name=threat_name,
             threat_description=mitre_chunks[0] if mitre_chunks else body.query,
             rag_context=rag_context,
             analyst_query=body.query,
-        ):
-            yield token
+        )
 
     return StreamingResponse(token_stream(), media_type="text/plain")
 
@@ -179,5 +178,7 @@ async def find_similar_threats(
         ],
         "num_results": len(results),
     }
+
+
 
 
