@@ -290,6 +290,7 @@ def render_overview(T: dict, rag_svc, llm_svc):
 
 
 def render_threat_intel(T: dict, rag_svc, llm_svc):
+    import httpx
     st.markdown(f"""
     <div style='margin-bottom:2rem;'>
     <div style='font-family:Rajdhani,sans-serif;font-size:2rem;font-weight:700;color:{T["--text-primary"]};letter-spacing:0.05em;'>THREAT INTELLIGENCE Q&A</div>
