@@ -158,5 +158,49 @@ Provide: priority level (P1-P4), reasoning, immediate actions, escalation decisi
         return self._call(prompt, max_tokens=1024)
 
 
+def stream_analyze_threat(
+        self,
+        threat_id: str,
+        threat_name: str,
+        threat_description: str,
+        rag_context: list[str],
+        analyst_query: str = "",
+    ):
+        context = "\n\n---\n\n".join(rag_context) if rag_context else "No additional context available."
+        query_section = f"\nAnalyst Question: {analyst_query}" if analyst_query else ""
+        prompt = f"""Analyze the following cybersecurity threat and provide a comprehensive intelligence report.
+
+Threat ID: {threat_id}
+Name: {threat_name}
+Description: {threat_description}
+
+Retrieved Context:
+{context}
+{query_section}
+
+Structure your response with these sections:
+1. Threat Summary
+2. Attack Mechanics
+3. Indicators of Compromise
+4. Detection Opportunities
+5. Recommended Mitigations
+6. Threat Actor Context"""
+
+        stream = self._client.chat.completions.create(
+            model=self._model,
+            max_tokens=self._max_tokens,
+            temperature=settings.llm_temperature,
+            messages=[
+                {"role": "system", "content": THREAT_ANALYST_PROMPT},
+                {"role": "user", "content": prompt},
+            ],
+            stream=True,
+        )
+        for chunk in stream:
+            delta = chunk.choices[0].delta.content
+            if delta:
+                yield delta
+
+
 def get_llm_service() -> LLMService:
     return LLMService()

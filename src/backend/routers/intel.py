@@ -116,6 +116,36 @@ async def query_threat_intel(
         rag_ready=rag_svc.is_ready,
     )
 
+@router.post("/intel/stream")
+async def stream_threat_intel(
+    body: IntelQueryRequest,
+    rag_svc: RAGService = Depends(get_rag_service),
+    llm_svc: LLMService = Depends(get_llm_service),
+):
+    from fastapi.responses import StreamingResponse
+    hybrid = rag_svc.retrieve_with_cves(query=body.query, top_k=body.top_k, max_cves=3)
+    mitre_chunks = hybrid["mitre_chunks"]
+    cve_chunks = hybrid["cve_chunks"]
+    rag_context = mitre_chunks.copy()
+    if cve_chunks:
+        rag_context.append("RELATED CVEs FROM NVD:\n" + "\n".join(cve_chunks))
+    metadata = [r["metadata"] for r in hybrid["mitre_results"]]
+    threat_id = metadata[0].get("threat_id", "General") if metadata else "General"
+    threat_name = metadata[0].get("name", body.query[:80]) if metadata else body.query[:80]
+
+    def token_stream():
+        for token in llm_svc.stream_analyze_threat(
+            threat_id=threat_id,
+            threat_name=threat_name,
+            threat_description=mitre_chunks[0] if mitre_chunks else body.query,
+            rag_context=rag_context,
+            analyst_query=body.query,
+        ):
+            yield token
+
+    return StreamingResponse(token_stream(), media_type="text/plain")
+
+
 @router.get("/intel/status")
 async def get_index_status(rag_svc: RAGService = Depends(get_rag_service)):
     return {
@@ -149,4 +179,5 @@ async def find_similar_threats(
         ],
         "num_results": len(results),
     }
+
 
