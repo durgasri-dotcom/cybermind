@@ -145,6 +145,35 @@ async def stream_threat_intel(
     return StreamingResponse(token_stream(), media_type="text/plain")
 
 
+@router.post("/intel/sigma")
+async def generate_sigma_rule(
+    body: IntelQueryRequest,
+    rag_svc: RAGService = Depends(get_rag_service),
+    llm_svc: LLMService = Depends(get_llm_service),
+):
+    hybrid = rag_svc.retrieve_with_cves(query=body.query, top_k=3, max_cves=2)
+    mitre_results = hybrid["mitre_results"]
+    metadata = [r["metadata"] for r in mitre_results]
+    threat_id = metadata[0].get("threat_id", "General") if metadata else "General"
+    threat_name = metadata[0].get("name", body.query[:80]) if metadata else body.query[:80]
+    description = mitre_results[0]["chunk"][:300] if mitre_results else body.query
+    mitre_techniques = list({m.get("threat_id", "") for m in metadata if m.get("threat_id")})
+    sigma_rule, latency = llm_svc.generate_sigma_rule(
+        threat_id=threat_id,
+        threat_name=threat_name,
+        description=description,
+        mitre_techniques=mitre_techniques,
+    )
+    return {
+        "query": body.query,
+        "threat_id": threat_id,
+        "threat_name": threat_name,
+        "sigma_rule": sigma_rule,
+        "mitre_techniques": mitre_techniques,
+        "latency_ms": round(latency, 2),
+    }
+
+
 @router.get("/intel/status")
 async def get_index_status(rag_svc: RAGService = Depends(get_rag_service)):
     return {
@@ -178,6 +207,7 @@ async def find_similar_threats(
         ],
         "num_results": len(results),
     }
+
 
 
 

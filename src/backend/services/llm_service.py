@@ -202,5 +202,35 @@ Structure your response with these sections:
                 yield delta
 
 
+def generate_sigma_rule(
+        self,
+        threat_id: str,
+        threat_name: str,
+        description: str,
+        mitre_techniques: list[str],
+    ) -> tuple[str, float]:
+        techniques = ", ".join(mitre_techniques) if mitre_techniques else threat_id
+        prompt = f"""Generate a Sigma detection rule for the following threat.
+
+Threat ID: {threat_id}
+Name: {threat_name}
+Description: {description}
+MITRE ATT&CK Techniques: {techniques}
+
+Generate a complete, valid Sigma rule in YAML format that a SOC analyst can use directly in their SIEM.
+Include:
+- title, id, status, description
+- author, date, tags (with MITRE technique IDs)
+- logsource (category, product)
+- detection (selection + condition)
+- falsepositives
+- level (low/medium/high/critical)
+
+Return ONLY the Sigma YAML rule, no explanation."""
+
+        return self._call(prompt, max_tokens=1024)
+
+
 def get_llm_service() -> LLMService:
     return LLMService()
+
