@@ -349,7 +349,7 @@ def render_threat_intel(T: dict, rag_svc, llm_svc):
                 tid = r["metadata"].get("threat_id", "unknown")
                 if tid not in seen:
                     seen.add(tid)
-                    score = r["score"]
+                    score = r.get("score", 0.0)
                     sc = T["--green"] if score > 0.6 else T["--yellow"] if score > 0.4 else T["--text-dim"]
                     st.markdown(f"""<div style='background:{T["--bg-card"]};border:1px solid {T["--border"]};border-radius:6px;padding:0.8rem 1rem;margin-bottom:0.4rem;display:flex;justify-content:space-between;align-items:flex-start;'>
                     <div><span style='font-family:JetBrains Mono,monospace;font-size:0.75rem;color:{T["--cyan"]};'>{tid}</span>
