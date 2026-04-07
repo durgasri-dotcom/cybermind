@@ -512,10 +512,10 @@ def render_playbooks(T: dict, rag_svc, llm_svc):
             else:
                 tools = [t.strip() for t in tools_input.split(",") if t.strip()]
                 rag_context = []
-                  try:
+                try:
                       _r = httpx.post(f"{BACKEND_URL}/intel/query", json={"query": f"incident response {threat_id} containment", "top_k": 3}, headers={"X-API-Key": API_KEY}, timeout=30)
                       rag_context = _r.json().get("retrieved_chunks", [])
-                  except Exception:
+                except Exception:
                       rag_context = []
                 alert_context = context.strip()
                 if rag_context:
