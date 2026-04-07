@@ -314,7 +314,7 @@ def render_threat_intel(T: dict, rag_svc, llm_svc):
     if analyze and query.strip():
         start = time.perf_counter()
         # First get chunks via query endpoint
-        r = httpx.post(f"{BACKEND_URL}/intel/query", json={"query": query.strip(), "top_k": top_k}, headers={"X-API-Key": API_KEY}, timeout=60)
+        r = httpx.post(f"{BACKEND_URL}/intel/query", json={"query": query.strip(), "top_k": top_k}, headers={"X-API-Key": API_KEY}, timeout=120)
         r.raise_for_status()
         data = r.json()
         chunks = data.get("retrieved_chunks", [])
@@ -925,6 +925,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
