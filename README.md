@@ -29,7 +29,7 @@ flowchart TD
     E --> F[RAG Pipeline\nLangChain + Semantic Retrieval]
     F --> G[LLM Analysis\nGroq · LLaMA 3.3 70B]
     G --> H[FastAPI Backend\nSQLAlchemy · Alembic · API Key Auth]
-    H --> I[SQLite Database\n6 Tables · Persistent Storage]
+    H --> I[PostgreSQL 16 � Render Managed � Persistent]
     H --> J[Streamlit Dashboard\n7 Tabs · Dark/Light Theme]
 ```
 
@@ -42,7 +42,7 @@ flowchart TD
 | LLM            | Groq API · LLaMA 3.3 70B Versatile                  |
 | RAG            | LangChain · FAISS · HuggingFace all-MiniLM-L6-v2    |
 | Backend        | FastAPI · Pydantic v2 · Uvicorn                     |
-| Database       | SQLite · SQLAlchemy ORM · Alembic Migrations        |
+| Database       | PostgreSQL 16 � SQLAlchemy ORM � Alembic Migrations        |
 | Auth           | X-API-Key middleware on all write endpoints         |
 | CVE Intel      | NVD REST API · CVSS scoring · MITRE ATT&CK mapping  |
 | Observability  | Request logging middleware · API analytics endpoint |
@@ -62,7 +62,7 @@ Ask anything about MITRE ATT&CK techniques, threat actors, or CVEs in natural la
 Fetch real CVEs from the NVD API by recency, severity, or keyword. Each CVE is automatically scored with CVSS, CWE weaknesses are extracted, and techniques are mapped to MITRE ATT&CK using heuristic CWE-to-TTP analysis. All data persisted to PostgreSQL with upsert logic.
 
 **Production PostgreSQL Backend with Alembic Migrations**
-All alerts, playbooks, entities, CVEs, and request logs are persisted to SQLite via SQLAlchemy ORM. Schema versioned with Alembic fully reproducible with `alembic upgrade head`. No more data loss on restart.
+All alerts, playbooks, entities, CVEs, and request logs are persisted to a managed PostgreSQL 16 database on Render via SQLAlchemy ORM. Schema versioned with Alembic fully reproducible with `alembic upgrade head`. No more data loss on restart.
 
 **AI-Generated Incident Response Playbooks**
 Submit any MITRE technique ID and CyberMind generates a structured incident response playbook with containment, eradication, and recovery steps including responsible teams, tools, and time estimates.
@@ -74,7 +74,7 @@ Create security alerts and trigger AI triage-priority recommendation (P1–P4), 
 All write endpoints (`POST`, `PATCH`, `DELETE`) protected with `X-API-Key` header. Read endpoints remain public. Key configured via `.env`.
 
 **API Observability & Analytics**
-Every API request is automatically logged to SQLite endpoint, method, status code, latency, client IP, timestamp. Query aggregated stats via `/api/v1/analytics/requests` total requests, avg latency, top endpoints, slowest endpoints.
+Every API request is automatically logged to PostgreSQL � endpoint, method, status code, latency, client IP, timestamp. Query aggregated stats via `/api/v1/analytics/requests` total requests, avg latency, top endpoints, slowest endpoints.
 
 **Entity Graph & Threat Actor Profiles**
 Add threat actors, malware families, and tools. Visualize entity relationships on an interactive graph. Enrich any entity with an AI-generated threat profile covering TTPs, targeting patterns, and detection recommendations.
@@ -238,3 +238,12 @@ docker-compose up --build
 ---
 
 _Built by Sri Durga Abhigna Tanguturi_
+
+
+
+
+
+
+
+
+
