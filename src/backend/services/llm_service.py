@@ -233,4 +233,3 @@ Return ONLY the Sigma YAML rule, no explanation."""
 
 def get_llm_service() -> LLMService:
     return LLMService()
-
