@@ -51,11 +51,7 @@ class LLMService:
             )
             text = response.choices[0].message.content
             elapsed = (time.perf_counter() - start) * 1000
-            logger.info(
-                "llm_call_success",
-                model=self._model,
-                latency_ms=round(elapsed, 2),
-            )
+            logger.info("llm_call_success", model=self._model, latency_ms=round(elapsed, 2))
             return text, elapsed
         except Exception as e:
             elapsed = (time.perf_counter() - start) * 1000
@@ -72,7 +68,6 @@ class LLMService:
     ) -> tuple[str, float]:
         context = "\n\n---\n\n".join(rag_context) if rag_context else "No additional context available."
         query_section = f"\nAnalyst Question: {analyst_query}" if analyst_query else ""
-
         prompt = f"""Analyze the following cybersecurity threat and provide a comprehensive intelligence report.
 
 Threat ID: {threat_id}
@@ -90,7 +85,6 @@ Structure your response with these sections:
 4. Detection Opportunities
 5. Recommended Mitigations
 6. Threat Actor Context"""
-
         return self._call(prompt)
 
     def generate_playbook(
@@ -101,7 +95,6 @@ Structure your response with these sections:
         available_tools: list[str] | None = None,
     ) -> tuple[str, float]:
         tools_section = f"\nAvailable Tools: {', '.join(available_tools)}" if available_tools else ""
-
         prompt = f"""Generate a detailed incident response playbook for the following threat.
 
 Threat ID: {threat_id}
@@ -111,7 +104,6 @@ Alert Context: {alert_context or 'No specific alert context provided.'}
 
 Structure as numbered steps covering containment, eradication, recovery, and lessons learned.
 For each step include: action, responsible team, tools, and estimated time."""
-
         return self._call(prompt)
 
     def generate_entity_profile(
@@ -123,7 +115,6 @@ For each step include: action, responsible team, tools, and estimated time."""
         associated_techniques: list[str],
     ) -> tuple[str, float]:
         techniques = ", ".join(associated_techniques[:15]) or "Unknown"
-
         prompt = f"""Generate a comprehensive threat intelligence profile for this entity.
 
 ID: {entity_id}
@@ -133,7 +124,6 @@ Description: {description}
 Known MITRE Techniques: {techniques}
 
 Cover: overview, TTPs, targeting profile, infrastructure, and detection recommendations."""
-
         return self._call(prompt)
 
     def triage_alert(
@@ -144,7 +134,6 @@ Cover: overview, TTPs, targeting profile, infrastructure, and detection recommen
         indicators: list[str],
     ) -> tuple[str, float]:
         iocs = "\n".join(f"- {ioc}" for ioc in indicators) or "- None provided"
-
         prompt = f"""Triage this security alert and provide a prioritized response recommendation.
 
 Alert: {alert_title}
@@ -154,11 +143,9 @@ Indicators:
 {iocs}
 
 Provide: priority level (P1-P4), reasoning, immediate actions, escalation decision, and false positive assessment."""
-
         return self._call(prompt, max_tokens=1024)
 
-
-def stream_analyze_threat(
+    def stream_analyze_threat(
         self,
         threat_id: str,
         threat_name: str,
@@ -185,7 +172,6 @@ Structure your response with these sections:
 4. Detection Opportunities
 5. Recommended Mitigations
 6. Threat Actor Context"""
-
         stream = self._client.chat.completions.create(
             model=self._model,
             max_tokens=self._max_tokens,
@@ -201,8 +187,7 @@ Structure your response with these sections:
             if delta:
                 yield delta
 
-
-def generate_sigma_rule(
+    def generate_sigma_rule(
         self,
         threat_id: str,
         threat_name: str,
@@ -227,7 +212,6 @@ Include:
 - level (low/medium/high/critical)
 
 Return ONLY the Sigma YAML rule, no explanation."""
-
         return self._call(prompt, max_tokens=1024)
 
 
