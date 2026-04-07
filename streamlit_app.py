@@ -313,22 +313,28 @@ def render_threat_intel(T: dict, rag_svc, llm_svc):
 
     if analyze and query.strip():
         start = time.perf_counter()
-        # First get chunks via query endpoint
-        r = httpx.post(f"{BACKEND_URL}/intel/query", json={"query": query.strip(), "top_k": top_k}, headers={"X-API-Key": API_KEY}, timeout=120)
-        r.raise_for_status()
-        data = r.json()
+        try:
+            r = httpx.post(
+                f"{BACKEND_URL}/intel/query",
+                json={"query": query.strip(), "top_k": top_k},
+                headers={"X-API-Key": API_KEY},
+                timeout=120,
+            )
+            r.raise_for_status()
+            data = r.json()
+        except Exception as e:
+            st.error(f"Backend error: {e}")
+            return
+
         chunks = data.get("retrieved_chunks", [])
         sources = data.get("sources", [])
-        retrieval_results = [{"chunk": c, "metadata": {}} for c in chunks]
-        metadata = [r["metadata"] for r in retrieval_results]
-        threat_id = data.get("similar_threats", [{}])[0].get("threat_id", "General") if data.get("similar_threats") else "General"
-        threat_name = data.get("similar_threats", [{}])[0].get("name", query[:80]) if data.get("similar_threats") else query[:80]
+        similar_threats = data.get("similar_threats", [])
         analysis = data.get("analysis", "")
         elapsed = (time.perf_counter() - start) * 1000
 
         c1, c2, c3 = st.columns(3)
         for col, label, value, color in [
-            (c1, "LATENCY", f"{elapsed:.0f}ms", T["--green"] if elapsed < 3000 else T["--yellow"]),
+            (c1, "LATENCY", f"{elapsed:.0f}ms", T["--green"] if elapsed < 5000 else T["--yellow"]),
             (c2, "CHUNKS RETRIEVED", str(len(chunks)), T["--cyan"]),
             (c3, "RAG STATUS", "READY", T["--green"]),
         ]:
@@ -341,21 +347,28 @@ def render_threat_intel(T: dict, rag_svc, llm_svc):
         st.markdown(f"<div style='font-family:Rajdhani,sans-serif;font-size:1.1rem;font-weight:600;color:{T['--text-secondary']};letter-spacing:0.1em;text-transform:uppercase;margin-bottom:1rem;'>INTELLIGENCE REPORT</div>", unsafe_allow_html=True)
         st.markdown(f"""<div style='background:{T["--bg-card"]};border:1px solid {T["--border"]};border-left:3px solid {T["--cyan"]};border-radius:8px;padding:1.5rem;line-height:1.8;font-family:Inter,sans-serif;font-size:0.9rem;color:{T["--text-primary"]};white-space:pre-wrap;'>{analysis}</div>""", unsafe_allow_html=True)
 
-        if retrieval_results:
+        if sources:
+            st.markdown(f"<div style='margin:1.5rem 0;border-top:1px solid {T['--border']};'></div>", unsafe_allow_html=True)
+            st.markdown(f"<div style='font-family:Rajdhani,sans-serif;font-size:1.1rem;font-weight:600;color:{T['--text-secondary']};letter-spacing:0.1em;text-transform:uppercase;margin-bottom:1rem;'>MITRE SOURCES</div>", unsafe_allow_html=True)
+            for source in sources:
+                st.markdown(f"<div style='font-family:JetBrains Mono,monospace;font-size:0.75rem;color:{T['--cyan']};margin-bottom:0.3rem;'>▸ {source}</div>", unsafe_allow_html=True)
+
+        if similar_threats:
             st.markdown(f"<div style='margin:1.5rem 0;border-top:1px solid {T['--border']};'></div>", unsafe_allow_html=True)
             st.markdown(f"<div style='font-family:Rajdhani,sans-serif;font-size:1.1rem;font-weight:600;color:{T['--text-secondary']};letter-spacing:0.1em;text-transform:uppercase;margin-bottom:1rem;'>SIMILAR THREATS RETRIEVED</div>", unsafe_allow_html=True)
-            seen = set()
-            for r in retrieval_results:
-                tid = r["metadata"].get("threat_id", "unknown")
-                if tid not in seen:
-                    seen.add(tid)
-                    score = r.get("score", 0.0)
-                    sc = T["--green"] if score > 0.6 else T["--yellow"] if score > 0.4 else T["--text-dim"]
-                    st.markdown(f"""<div style='background:{T["--bg-card"]};border:1px solid {T["--border"]};border-radius:6px;padding:0.8rem 1rem;margin-bottom:0.4rem;display:flex;justify-content:space-between;align-items:flex-start;'>
-                    <div><span style='font-family:JetBrains Mono,monospace;font-size:0.75rem;color:{T["--cyan"]};'>{tid}</span>
-                    <span style='font-family:Rajdhani,sans-serif;font-size:0.95rem;color:{T["--text-primary"]};margin-left:0.8rem;font-weight:600;'>{r["metadata"].get("name", tid)}</span>
-                    <div style='font-family:Inter,sans-serif;font-size:0.75rem;color:{T["--text-dim"]};margin-top:0.3rem;'>{r["chunk"][:150]}...</div></div>
-                    <div style='font-family:JetBrains Mono,monospace;font-size:0.75rem;color:{sc};white-space:nowrap;margin-left:1rem;'>{score:.4f}</div></div>""", unsafe_allow_html=True)
+            for threat in similar_threats:
+                tid = threat.get("threat_id", "unknown")
+                name = threat.get("name", tid)
+                score = threat.get("score", 0.0)
+                preview = threat.get("chunk_preview", "")
+                sc = T["--green"] if score > 0.6 else T["--yellow"] if score > 0.4 else T["--text-dim"]
+                st.markdown(f"""<div style='background:{T["--bg-card"]};border:1px solid {T["--border"]};border-radius:6px;padding:0.8rem 1rem;margin-bottom:0.4rem;'>
+                <div style='display:flex;justify-content:space-between;align-items:center;'>
+                <span style='font-family:JetBrains Mono,monospace;font-size:0.75rem;color:{T["--cyan"]};'>{tid}</span>
+                <span style='font-family:JetBrains Mono,monospace;font-size:0.75rem;color:{sc};'>{score:.4f}</span></div>
+                <div style='font-family:Rajdhani,sans-serif;font-size:0.95rem;color:{T["--text-primary"]};font-weight:600;margin-top:0.3rem;'>{name}</div>
+                <div style='font-family:Inter,sans-serif;font-size:0.75rem;color:{T["--text-dim"]};margin-top:0.3rem;'>{preview}</div>
+                </div>""", unsafe_allow_html=True)
 
         if chunks:
             with st.expander("◈ VIEW RAW CONTEXT CHUNKS"):
@@ -366,7 +379,6 @@ def render_threat_intel(T: dict, rag_svc, llm_svc):
 
     elif analyze:
         st.markdown(f"""<div style='background:{T["--warn-bg"]};border:1px solid {T["--warn-border"]};border-left:3px solid {T["--yellow"]};border-radius:6px;padding:0.8rem 1rem;font-family:JetBrains Mono,monospace;font-size:0.75rem;color:{T["--yellow"]};'>⚠ QUERY REQUIRED — Enter a threat intelligence question</div>""", unsafe_allow_html=True)
-
 
 def render_alerts(T: dict, llm_svc):
     st.markdown(f"""
