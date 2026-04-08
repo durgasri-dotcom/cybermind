@@ -740,7 +740,7 @@ def render_sigma(T: dict):
         sigma_clean = sigma_rule.replace("```yml", "").replace("```yaml", "").replace("```", "").strip()
 
         st.markdown(f"<div style='font-family:Rajdhani,sans-serif;font-size:1.1rem;font-weight:600;color:{T['--text-secondary']};letter-spacing:0.1em;text-transform:uppercase;margin-bottom:1rem;'>GENERATED SIGMA RULE</div>", unsafe_allow_html=True)
-        st.code(sigma_clean, language="yaml")
+        st.markdown(f"""<div style='background:{T["--input-bg"]};border:1px solid {T["--border"]};border-left:3px solid {T["--cyan"]};border-radius:8px;padding:1.5rem;font-family:JetBrains Mono,monospace;font-size:0.8rem;color:{T["--text-secondary"]};line-height:1.8;white-space:pre-wrap;overflow-x:auto;'>{sigma_clean}</div>""", unsafe_allow_html=True)
         st.markdown(f"""<div style='background:{T["--success-bg"]};border:1px solid {T["--success-border"]};border-left:3px solid {T["--green"]};border-radius:6px;padding:0.8rem 1rem;font-family:JetBrains Mono,monospace;font-size:0.75rem;color:{T["--green"]};margin-top:1rem;'>
         ✓ SIEM-READY — Deploy directly to Splunk, Microsoft Sentinel, Elastic SIEM, or any Sigma-compatible platform</div>""", unsafe_allow_html=True)
 
