@@ -67,6 +67,7 @@ class Settings(BaseSettings):
     risk_score_critical: float = 0.85
     risk_score_high: float = 0.65
     risk_score_medium: float = 0.40
+    otx_api_key: str = ""
 
 
 @lru_cache

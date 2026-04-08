@@ -11,7 +11,17 @@ from configs.logging_config import configure_logging, get_logger
 from configs.settings import settings
 from src.backend.database.engine import SessionLocal
 from src.backend.middleware.request_logger import request_logging_middleware
-from src.backend.routers import alerts, analytics, cves, entities, health, intel, playbooks, threats
+from src.backend.routers import (
+    alerts,
+    analytics,
+    cves,
+    entities,
+    health,
+    intel,
+    ioc,
+    playbooks,
+    threats,
+)
 
 configure_logging()
 logger = get_logger(__name__)
@@ -144,6 +154,7 @@ app.include_router(playbooks.router, prefix=prefix, tags=["Playbooks"])
 app.include_router(entities.router,  prefix=prefix, tags=["Entities"])
 app.include_router(cves.router,      prefix=prefix, tags=["CVEs"])
 app.include_router(analytics.router, prefix=prefix, tags=["Analytics"])
+app.include_router(ioc.router, prefix=prefix, tags=["IOC"])
 
 @app.get("/", include_in_schema=False)
 async def root():

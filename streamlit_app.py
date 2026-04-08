@@ -850,6 +850,67 @@ def render_cve_intel(T: dict):
             <div><span style='color:{T["--text-dim"]};'>CWE:</span> {cwes}</div>
             <div><span style='color:{T["--text-dim"]};'>MITRE:</span> <span style='color:{T["--cyan"]};'>{techniques}</span></div>
             </div>""", unsafe_allow_html=True)
+def render_ioc(T: dict):
+    import httpx
+    st.markdown(f"""
+    <div style='margin-bottom:2rem;'>
+    <div style='font-family:Rajdhani,sans-serif;font-size:2rem;font-weight:700;color:{T["--text-primary"]};letter-spacing:0.05em;'>IOC THREAT FEED</div>
+    <div style='font-family:JetBrains Mono,monospace;font-size:0.7rem;color:{T["--text-dim"]};letter-spacing:0.15em;margin-top:0.3rem;'>LIVE INDICATORS OF COMPROMISE · ALIENVAULT OTX · MITRE ATT&CK MAPPED</div>
+    </div>""", unsafe_allow_html=True)
+
+    col1, col2 = st.columns([3,1])
+    with col1:
+        limit = st.slider("NUMBER OF PULSES", min_value=5, max_value=20, value=10, key="ioc_limit")
+    with col2:
+        st.markdown("<div style='margin-top:1.8rem;'></div>", unsafe_allow_html=True)
+        refresh = st.button("REFRESH FEED", use_container_width=True)
+
+    try:
+        r = httpx.get(f"{BACKEND_URL}/ioc/pulses", params={"limit": limit}, timeout=20)
+        r.raise_for_status()
+        data = r.json()
+        pulses = data.get("pulses", [])
+    except Exception as e:
+        st.error(f"Backend error: {e}")
+        return
+
+    st.markdown(f"<div style='font-family:JetBrains Mono,monospace;font-size:0.65rem;color:{T['--text-dim']};letter-spacing:0.1em;margin-bottom:1rem;'>{len(pulses)} THREAT PULSES · SOURCE: ALIENVAULT OTX</div>", unsafe_allow_html=True)
+
+    TLP_COLORS = {"white": T["--text-dim"], "green": T["--green"], "amber": T["--yellow"], "red": T["--red"]}
+    TYPE_COLORS = {"IPv4": T["--red"], "IPv6": T["--red"], "domain": T["--orange"], "hostname": T["--orange"], "URL": T["--yellow"], "FileHash-MD5": T["--cyan"], "FileHash-SHA1": T["--cyan"], "FileHash-SHA256": T["--cyan"], "email": T["--green"], "CVE": T["--orange"]}
+
+    for pulse in pulses:
+        tlp = pulse.get("tlp", "white").lower()
+        tlp_color = TLP_COLORS.get(tlp, T["--text-dim"])
+        tags = pulse.get("tags", [])
+        tags_html = " ".join([f"<span style='background:{T['--tag-bg']};border-radius:3px;padding:0.1rem 0.4rem;font-family:JetBrains Mono,monospace;font-size:0.6rem;color:{T['--text-dim']};'>{t}</span>" for t in tags])
+
+        with st.expander(f"{pulse.get('name', 'Unknown Pulse')}"):
+            st.markdown(f"""
+            <div style='display:flex;gap:0.6rem;margin-bottom:0.8rem;flex-wrap:wrap;align-items:center;'>
+            <span style='background:{tlp_color}22;border:1px solid {tlp_color}55;border-radius:4px;padding:0.2rem 0.6rem;font-family:JetBrains Mono,monospace;font-size:0.65rem;color:{tlp_color};'>TLP: {tlp.upper()}</span>
+            <span style='font-family:JetBrains Mono,monospace;font-size:0.65rem;color:{T["--text-dim"]};'>{pulse.get("created","")[:10]}</span>
+            <span style='font-family:JetBrains Mono,monospace;font-size:0.65rem;color:{T["--text-dim"]};'>by {pulse.get("author","")}</span>
+            </div>
+            <div style='font-family:Inter,sans-serif;font-size:0.85rem;color:{T["--text-secondary"]};line-height:1.6;margin-bottom:0.8rem;'>{pulse.get("description","")}</div>
+            <div style='display:flex;gap:0.3rem;flex-wrap:wrap;margin-bottom:1rem;'>{tags_html}</div>
+            """, unsafe_allow_html=True)
+
+            indicators = pulse.get("indicators", [])
+            if indicators:
+                st.markdown(f"<div style='font-family:JetBrains Mono,monospace;font-size:0.65rem;color:{T['--text-dim']};letter-spacing:0.1em;margin-bottom:0.5rem;'>INDICATORS OF COMPROMISE</div>", unsafe_allow_html=True)
+                for ioc in indicators:
+                    ioc_type = ioc.get("type", "unknown")
+                    ioc_color = TYPE_COLORS.get(ioc_type, T["--text-dim"])
+                    mitre = ioc.get("mitre_technique", "")
+                    st.markdown(f"""
+                    <div style='background:{T["--input-bg"]};border:1px solid {T["--border"]};border-left:2px solid {ioc_color};border-radius:4px;padding:0.4rem 0.8rem;margin-bottom:0.3rem;display:flex;justify-content:space-between;align-items:center;'>
+                    <div>
+                    <span style='font-family:JetBrains Mono,monospace;font-size:0.65rem;color:{ioc_color};margin-right:0.5rem;'>{ioc_type}</span>
+                    <span style='font-family:JetBrains Mono,monospace;font-size:0.75rem;color:{T["--text-primary"]};'>{ioc.get("indicator","")[:60]}</span>
+                    </div>
+                    <span style='font-family:JetBrains Mono,monospace;font-size:0.65rem;color:{T["--cyan"]};'>{mitre}</span>
+                    </div>""", unsafe_allow_html=True)
 def render_kill_chain(T: dict):
     import httpx
     import json
@@ -1039,7 +1100,7 @@ def main():
 
     st.sidebar.markdown(f"<div style='font-family:JetBrains Mono,monospace;font-size:0.65rem;color:{T['--text-dim']};letter-spacing:0.15em;text-transform:uppercase;margin-bottom:0.5rem;'>NAVIGATION</div>", unsafe_allow_html=True)
 
-    TABS = {"Overview": " ", "Threat Intel": " ", "Sigma Rules": " ", "CVE Intel": " ", "Alerts": " ", "Playbooks": " ", "Entity Graph": " ", "Kill Chain": " ", "Analytics": " "}
+    TABS = {"Overview": " ", "Threat Intel": " ", "Sigma Rules": " ", "CVE Intel": " ", "Alerts": " ", "Playbooks": " ", "Entity Graph": " ", "IOC": " ", "Kill Chain": " ", "Analytics": " "}
     selected = st.sidebar.radio("nav", list(TABS.keys()), format_func=lambda x: f"{TABS[x]}  {x}", label_visibility="collapsed")
 
     st.sidebar.markdown(f"""<hr style='border-color:{T["--border"]};margin:1.5rem 0;'>
@@ -1064,6 +1125,8 @@ def main():
         render_sigma(T)
     elif selected == "CVE Intel":
         render_cve_intel(T)
+    elif selected == "IOC":
+        render_ioc(T)
     elif selected == "Kill Chain":
         render_kill_chain(T)
     elif selected == "Analytics":
