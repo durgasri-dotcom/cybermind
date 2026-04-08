@@ -1,0 +1,13 @@
+version: 2
+
+sources:
+  - name: public
+    database: cybermind_db
+    schema: public
+    tables:
+      - name: cves
+      - name: alerts
+      - name: request_logs
+      - name: playbooks
+      - name: entities
+      - name: embeddings
