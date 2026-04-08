@@ -1,0 +1,44 @@
+version: 2
+
+models:
+  - name: stg_cves
+    description: Staged CVE data from NVD with severity and risk bands
+    columns:
+      - name: id
+        tests:
+          - not_null
+          - unique
+      - name: cve_id
+        tests:
+          - not_null
+          - unique
+      - name: severity_band
+        tests:
+          - not_null
+          - accepted_values:
+              values: ["CRITICAL", "HIGH", "MEDIUM", "LOW", "UNKNOWN"]
+
+  - name: stg_alerts
+    description: Staged security alerts with priority scores
+    columns:
+      - name: id
+        tests:
+          - not_null
+          - unique
+      - name: priority
+        tests:
+          - accepted_values:
+              values: ["P1", "P2", "P3", "P4"]
+
+  - name: stg_request_logs
+    description: Staged API request logs with latency categories
+    columns:
+      - name: id
+        tests:
+          - not_null
+          - unique
+      - name: status_category
+        tests:
+          - not_null
+          - accepted_values:
+              values: ["SUCCESS", "CLIENT_ERROR", "SERVER_ERROR", "OTHER"]

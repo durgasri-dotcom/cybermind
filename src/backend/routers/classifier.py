@@ -1,6 +1,8 @@
 from __future__ import annotations
-import pickle
+
 import os
+import pickle
+
 import numpy as np
 from fastapi import APIRouter
 from pydantic import BaseModel
