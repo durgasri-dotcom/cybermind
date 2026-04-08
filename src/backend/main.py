@@ -14,6 +14,7 @@ from src.backend.middleware.request_logger import request_logging_middleware
 from src.backend.routers import (
     alerts,
     analytics,
+    classifier,
     cves,
     entities,
     health,
@@ -155,6 +156,7 @@ app.include_router(entities.router,  prefix=prefix, tags=["Entities"])
 app.include_router(cves.router,      prefix=prefix, tags=["CVEs"])
 app.include_router(analytics.router, prefix=prefix, tags=["Analytics"])
 app.include_router(ioc.router, prefix=prefix, tags=["IOC"])
+app.include_router(classifier.router, prefix=prefix, tags=["Classifier"])
 
 @app.get("/", include_in_schema=False)
 async def root():
