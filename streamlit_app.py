@@ -903,7 +903,7 @@ def render_kill_chain(T: dict):
             <div style='display:flex;align-items:flex-start;margin-bottom:0;'>
                 <div style='display:flex;flex-direction:column;align-items:center;margin-right:1rem;'>
                     <div style='width:36px;height:36px;border-radius:50%;background:{color}22;border:2px solid {color};display:flex;align-items:center;justify-content:center;font-family:JetBrains Mono,monospace;font-size:0.75rem;color:{color};font-weight:700;flex-shrink:0;'>{i+1}</div>
-                    {'<div style="width:2px;height:40px;background:' + color + '44;margin:4px 0;"></div>' if not is_last else ''}
+                    {f'<div style="width:2px;height:40px;background:{color}44;margin:4px 0;"></div>' if not is_last else '<div style="height:4px;"></div>'}
                 </div>
                 <div style='background:{T["--bg-card"]};border:1px solid {T["--border"]};border-left:3px solid {color};border-radius:8px;padding:1rem 1.2rem;margin-bottom:{"0.5rem" if not is_last else "0"};flex:1;'>
                     <div style='display:flex;justify-content:space-between;align-items:center;margin-bottom:0.4rem;'>
