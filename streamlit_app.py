@@ -850,7 +850,79 @@ def render_cve_intel(T: dict):
             <div><span style='color:{T["--text-dim"]};'>CWE:</span> {cwes}</div>
             <div><span style='color:{T["--text-dim"]};'>MITRE:</span> <span style='color:{T["--cyan"]};'>{techniques}</span></div>
             </div>""", unsafe_allow_html=True)
+def render_kill_chain(T: dict):
+    import httpx
+    import json
+    st.markdown(f"""
+    <div style='margin-bottom:2rem;'>
+    <div style='font-family:Rajdhani,sans-serif;font-size:2rem;font-weight:700;color:{T["--text-primary"]};letter-spacing:0.05em;'>KILL CHAIN TIMELINE</div>
+    <div style='font-family:JetBrains Mono,monospace;font-size:0.7rem;color:{T["--text-dim"]};letter-spacing:0.15em;margin-top:0.3rem;'>MITRE ATT&CK · AI-GENERATED ATTACK PROGRESSION · PHASE-BY-PHASE ANALYSIS</div>
+    </div>""", unsafe_allow_html=True)
 
+    query = st.text_area("THREAT QUERY", placeholder="e.g. ransomware lateral movement techniques", height=90, key="killchain_query")
+    generate = st.button("GENERATE KILL CHAIN", type="primary")
+
+    if generate and query.strip():
+        with st.spinner("Generating kill chain timeline..."):
+            try:
+                r = httpx.post(
+                    f"{BACKEND_URL}/intel/killchain",
+                    json={"query": query.strip()},
+                    headers={"X-API-Key": API_KEY},
+                    timeout=60,
+                )
+                r.raise_for_status()
+                data = r.json()
+            except Exception as e:
+                st.error(f"Backend error: {e}")
+                return
+
+        st.markdown(f"<div style='margin:1.5rem 0;border-top:1px solid {T['--border']};'></div>", unsafe_allow_html=True)
+
+        col1, col2 = st.columns(2)
+        with col1:
+            st.markdown(f"""<div style='background:{T["--bg-card"]};border:1px solid {T["--border"]};border-top:3px solid {T["--cyan"]};border-radius:6px;padding:0.8rem 1rem;text-align:center;'>
+            <div style='font-family:JetBrains Mono,monospace;font-size:0.6rem;color:{T["--text-dim"]};letter-spacing:0.15em;margin-bottom:0.3rem;'>THREAT ID</div>
+            <div style='font-family:Rajdhani,sans-serif;font-size:1.2rem;font-weight:700;color:{T["--cyan"]};'>{data.get("threat_id", "—")}</div></div>""", unsafe_allow_html=True)
+        with col2:
+            st.markdown(f"""<div style='background:{T["--bg-card"]};border:1px solid {T["--border"]};border-top:3px solid {T["--green"]};border-radius:6px;padding:0.8rem 1rem;text-align:center;'>
+            <div style='font-family:JetBrains Mono,monospace;font-size:0.6rem;color:{T["--text-dim"]};letter-spacing:0.15em;margin-bottom:0.3rem;'>THREAT NAME</div>
+            <div style='font-family:Rajdhani,sans-serif;font-size:1rem;font-weight:700;color:{T["--green"]};'>{data.get("threat_name", "—")[:40]}</div></div>""", unsafe_allow_html=True)
+
+        st.markdown(f"<div style='margin:1.5rem 0;border-top:1px solid {T['--border']};'></div>", unsafe_allow_html=True)
+        st.markdown(f"<div style='font-family:Rajdhani,sans-serif;font-size:1.1rem;font-weight:600;color:{T['--text-secondary']};letter-spacing:0.1em;text-transform:uppercase;margin-bottom:1.5rem;'>ATTACK PROGRESSION</div>", unsafe_allow_html=True)
+
+        SEV_COLORS = {"critical": T["--red"], "high": T["--orange"], "medium": T["--yellow"], "low": T["--green"]}
+        phases = data.get("kill_chain", [])
+
+        for i, phase in enumerate(phases):
+            sev = phase.get("severity", "medium").lower()
+            color = SEV_COLORS.get(sev, T["--text-dim"])
+            is_last = i == len(phases) - 1
+            st.markdown(f"""
+            <div style='display:flex;align-items:flex-start;margin-bottom:0;'>
+                <div style='display:flex;flex-direction:column;align-items:center;margin-right:1rem;'>
+                    <div style='width:36px;height:36px;border-radius:50%;background:{color}22;border:2px solid {color};display:flex;align-items:center;justify-content:center;font-family:JetBrains Mono,monospace;font-size:0.75rem;color:{color};font-weight:700;flex-shrink:0;'>{i+1}</div>
+                    {'<div style="width:2px;height:40px;background:' + color + '44;margin:4px 0;"></div>' if not is_last else ''}
+                </div>
+                <div style='background:{T["--bg-card"]};border:1px solid {T["--border"]};border-left:3px solid {color};border-radius:8px;padding:1rem 1.2rem;margin-bottom:{"0.5rem" if not is_last else "0"};flex:1;'>
+                    <div style='display:flex;justify-content:space-between;align-items:center;margin-bottom:0.4rem;'>
+                        <div style='font-family:Rajdhani,sans-serif;font-size:1.1rem;font-weight:700;color:{T["--text-primary"]};'>{phase.get("phase", "")}</div>
+                        <span style='background:{color}22;border:1px solid {color}55;border-radius:4px;padding:0.2rem 0.6rem;font-family:JetBrains Mono,monospace;font-size:0.65rem;color:{color};text-transform:uppercase;'>{sev}</span>
+                    </div>
+                    <div style='display:flex;gap:0.5rem;margin-bottom:0.5rem;flex-wrap:wrap;'>
+                        <span style='font-family:JetBrains Mono,monospace;font-size:0.7rem;color:{T["--cyan"]};'>{phase.get("technique_id", "")}</span>
+                        <span style='font-family:JetBrains Mono,monospace;font-size:0.7rem;color:{T["--text-dim"]};'>·</span>
+                        <span style='font-family:JetBrains Mono,monospace;font-size:0.7rem;color:{T["--text-secondary"]};'>{phase.get("technique_name", "")}</span>
+                        <span style='font-family:JetBrains Mono,monospace;font-size:0.7rem;color:{T["--text-dim"]};'>·</span>
+                        <span style='font-family:JetBrains Mono,monospace;font-size:0.7rem;color:{T["--text-dim"]};'>{phase.get("tactic", "")}</span>
+                    </div>
+                    <div style='font-family:Inter,sans-serif;font-size:0.85rem;color:{T["--text-secondary"]};line-height:1.5;'>{phase.get("description", "")}</div>
+                </div>
+            </div>""", unsafe_allow_html=True)
+
+    elif generate:
+        st.markdown(f"""<div style='background:{T["--warn-bg"]};border:1px solid {T["--warn-border"]};border-left:3px solid {T["--yellow"]};border-radius:6px;padding:0.8rem 1rem;font-family:JetBrains Mono,monospace;font-size:0.75rem;color:{T["--yellow"]};'>QUERY REQUIRED</div>""", unsafe_allow_html=True)
 
 def render_analytics(T: dict):
     import httpx
@@ -967,7 +1039,7 @@ def main():
 
     st.sidebar.markdown(f"<div style='font-family:JetBrains Mono,monospace;font-size:0.65rem;color:{T['--text-dim']};letter-spacing:0.15em;text-transform:uppercase;margin-bottom:0.5rem;'>NAVIGATION</div>", unsafe_allow_html=True)
 
-    TABS = {"Overview": " ", "Threat Intel": " ", "Sigma Rules": " ", "CVE Intel": " ", "Alerts": " ", "Playbooks": " ", "Entity Graph": " ", "Analytics": " "}
+    TABS = {"Overview": " ", "Threat Intel": " ", "Sigma Rules": " ", "CVE Intel": " ", "Alerts": " ", "Playbooks": " ", "Entity Graph": " ", "Kill Chain": " ", "Analytics": " "}
     selected = st.sidebar.radio("nav", list(TABS.keys()), format_func=lambda x: f"{TABS[x]}  {x}", label_visibility="collapsed")
 
     st.sidebar.markdown(f"""<hr style='border-color:{T["--border"]};margin:1.5rem 0;'>
@@ -992,6 +1064,8 @@ def main():
         render_sigma(T)
     elif selected == "CVE Intel":
         render_cve_intel(T)
+    elif selected == "Kill Chain":
+        render_kill_chain(T)
     elif selected == "Analytics":
         render_analytics(T)
 
