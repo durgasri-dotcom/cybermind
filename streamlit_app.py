@@ -1039,7 +1039,7 @@ def main():
 
     st.sidebar.markdown(f"<div style='font-family:JetBrains Mono,monospace;font-size:0.65rem;color:{T['--text-dim']};letter-spacing:0.15em;text-transform:uppercase;margin-bottom:0.5rem;'>NAVIGATION</div>", unsafe_allow_html=True)
 
-    TABS = {"Overview": " ", "Threat Intel": " ", "Sigma Rules": " ", "CVE Intel": " ", "Alerts": " ", "Playbooks": " ", "Entity Graph": " ", "Kill Chain": " ", "Analytics": " "}
+    TABS = {"Overview": "Overview", "Threat Intel": "Threat Intel", "Sigma Rules": "Sigma Rules", "CVE Intel": "CVE Intel", "Alerts": "Alerts", "Playbooks": "Playbooks", "Entity Graph": "Entity Graph", "Kill Chain": "Kill Chain", "Analytics": "Analytics"}
     selected = st.sidebar.radio("nav", list(TABS.keys()), format_func=lambda x: f"{TABS[x]}  {x}", label_visibility="collapsed")
 
     st.sidebar.markdown(f"""<hr style='border-color:{T["--border"]};margin:1.5rem 0;'>
