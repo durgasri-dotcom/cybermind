@@ -687,7 +687,65 @@ def render_entity_graph(T: dict, llm_svc):
                 st.markdown(f"<div style='background:{T['--success-bg']};border:1px solid {T['--success-border']};border-left:3px solid {T['--green']};border-radius:6px;padding:0.8rem 1rem;font-family:JetBrains Mono,monospace;font-size:0.75rem;color:{T['--green']};'>✓ ENTITY '{name.upper()}' ADDED SUCCESSFULLY</div>", unsafe_allow_html=True)
                 st.rerun()
 
+def render_sigma(T: dict):
+    import httpx
+    st.markdown(f"""
+    <div style='margin-bottom:2rem;'>
+    <div style='font-family:Rajdhani,sans-serif;font-size:2rem;font-weight:700;color:{T["--text-primary"]};letter-spacing:0.05em;'>SIGMA RULE GENERATOR</div>
+    <div style='font-family:JetBrains Mono,monospace;font-size:0.7rem;color:{T["--text-dim"]};letter-spacing:0.15em;margin-top:0.3rem;'>AI-GENERATED DETECTION RULES · MITRE ATT&CK · SIEM-READY YAML</div>
+    </div>""", unsafe_allow_html=True)
 
+    query = st.text_area("THREAT QUERY", placeholder="e.g. PowerShell execution and credential dumping", height=90, key="sigma_query")
+    generate = st.button("⟶ GENERATE SIGMA RULE", type="primary")
+
+    if generate and query.strip():
+        with st.spinner("Generating Sigma detection rule..."):
+            try:
+                r = httpx.post(
+                    f"{BACKEND_URL}/intel/sigma",
+                    json={"query": query.strip()},
+                    headers={"X-API-Key": API_KEY},
+                    timeout=60,
+                )
+                r.raise_for_status()
+                data = r.json()
+            except Exception as e:
+                st.error(f"Backend error: {e}")
+                return
+
+        st.markdown(f"<div style='margin:1.5rem 0;border-top:1px solid {T['--border']};'></div>", unsafe_allow_html=True)
+
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.markdown(f"""<div style='background:{T["--bg-card"]};border:1px solid {T["--border"]};border-top:3px solid {T["--cyan"]};border-radius:6px;padding:0.8rem 1rem;text-align:center;'>
+            <div style='font-family:JetBrains Mono,monospace;font-size:0.6rem;color:{T["--text-dim"]};letter-spacing:0.15em;margin-bottom:0.3rem;'>THREAT ID</div>
+            <div style='font-family:Rajdhani,sans-serif;font-size:1.2rem;font-weight:700;color:{T["--cyan"]};'>{data.get("threat_id", "—")}</div></div>""", unsafe_allow_html=True)
+        with col2:
+            st.markdown(f"""<div style='background:{T["--bg-card"]};border:1px solid {T["--border"]};border-top:3px solid {T["--green"]};border-radius:6px;padding:0.8rem 1rem;text-align:center;'>
+            <div style='font-family:JetBrains Mono,monospace;font-size:0.6rem;color:{T["--text-dim"]};letter-spacing:0.15em;margin-bottom:0.3rem;'>THREAT NAME</div>
+            <div style='font-family:Rajdhani,sans-serif;font-size:1rem;font-weight:700;color:{T["--green"]};'>{data.get("threat_name", "—")[:30]}</div></div>""", unsafe_allow_html=True)
+        with col3:
+            st.markdown(f"""<div style='background:{T["--bg-card"]};border:1px solid {T["--border"]};border-top:3px solid {T["--yellow"]};border-radius:6px;padding:0.8rem 1rem;text-align:center;'>
+            <div style='font-family:JetBrains Mono,monospace;font-size:0.6rem;color:{T["--text-dim"]};letter-spacing:0.15em;margin-bottom:0.3rem;'>LATENCY</div>
+            <div style='font-family:Rajdhani,sans-serif;font-size:1.2rem;font-weight:700;color:{T["--yellow"]};'>{data.get("latency_ms", 0):.0f}ms</div></div>""", unsafe_allow_html=True)
+
+        st.markdown(f"<div style='margin:1.5rem 0;border-top:1px solid {T['--border']};'></div>", unsafe_allow_html=True)
+
+        techniques = data.get("mitre_techniques", [])
+        if techniques:
+            tags_html = " ".join([f"<span style='background:{T['--cyan-dim']};border:1px solid {T['--cyan']}44;border-radius:4px;padding:0.2rem 0.6rem;font-family:JetBrains Mono,monospace;font-size:0.65rem;color:{T['--cyan']};'>{t}</span>" for t in techniques])
+            st.markdown(f"<div style='font-family:JetBrains Mono,monospace;font-size:0.65rem;color:{T['--text-dim']};letter-spacing:0.1em;margin-bottom:0.5rem;'>MITRE TECHNIQUES</div><div style='display:flex;gap:0.4rem;flex-wrap:wrap;margin-bottom:1.5rem;'>{tags_html}</div>", unsafe_allow_html=True)
+
+        sigma_rule = data.get("sigma_rule", "")
+        sigma_clean = sigma_rule.replace("```yml", "").replace("```yaml", "").replace("```", "").strip()
+
+        st.markdown(f"<div style='font-family:Rajdhani,sans-serif;font-size:1.1rem;font-weight:600;color:{T['--text-secondary']};letter-spacing:0.1em;text-transform:uppercase;margin-bottom:1rem;'>GENERATED SIGMA RULE</div>", unsafe_allow_html=True)
+        st.code(sigma_clean, language="yaml")
+        st.markdown(f"""<div style='background:{T["--success-bg"]};border:1px solid {T["--success-border"]};border-left:3px solid {T["--green"]};border-radius:6px;padding:0.8rem 1rem;font-family:JetBrains Mono,monospace;font-size:0.75rem;color:{T["--green"]};margin-top:1rem;'>
+        ✓ SIEM-READY — Deploy directly to Splunk, Microsoft Sentinel, Elastic SIEM, or any Sigma-compatible platform</div>""", unsafe_allow_html=True)
+
+    elif generate:
+        st.markdown(f"""<div style='background:{T["--warn-bg"]};border:1px solid {T["--warn-border"]};border-left:3px solid {T["--yellow"]};border-radius:6px;padding:0.8rem 1rem;font-family:JetBrains Mono,monospace;font-size:0.75rem;color:{T["--yellow"]};'>⚠ QUERY REQUIRED</div>""", unsafe_allow_html=True)
 def render_cve_intel(T: dict):
     import httpx
     st.markdown(f"""
@@ -909,7 +967,7 @@ def main():
 
     st.sidebar.markdown(f"<div style='font-family:JetBrains Mono,monospace;font-size:0.65rem;color:{T['--text-dim']};letter-spacing:0.15em;text-transform:uppercase;margin-bottom:0.5rem;'>NAVIGATION</div>", unsafe_allow_html=True)
 
-    TABS = {"Overview": "🛡️", "Threat Intel": "🔍", "CVE Intel": "🔴", "Alerts": "🚨", "Playbooks": "📋", "Entity Graph": "🕸️", "Analytics": "📊"}
+    TABS = {"Overview": "🛡️", "Threat Intel": "🔍", "Sigma Rules": "⚡", "CVE Intel": "🔴", "Alerts": "🚨", "Playbooks": "📋", "Entity Graph": "🕸️", "Analytics": "📊"}
     selected = st.sidebar.radio("nav", list(TABS.keys()), format_func=lambda x: f"{TABS[x]}  {x}", label_visibility="collapsed")
 
     st.sidebar.markdown(f"""<hr style='border-color:{T["--border"]};margin:1.5rem 0;'>
@@ -923,12 +981,15 @@ def main():
         render_overview(T, rag_svc, llm_svc)
     elif selected == "Threat Intel":
         render_threat_intel(T, rag_svc, llm_svc)
+        
     elif selected == "Alerts":
         render_alerts(T, llm_svc)
     elif selected == "Playbooks":
         render_playbooks(T, rag_svc, llm_svc)
     elif selected == "Entity Graph":
         render_entity_graph(T, llm_svc)
+    elif selected == "Sigma Rules":
+        render_sigma(T)
     elif selected == "CVE Intel":
         render_cve_intel(T)
     elif selected == "Analytics":
