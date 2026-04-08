@@ -214,6 +214,27 @@ Include:
 Return ONLY the Sigma YAML rule, no explanation."""
         return self._call(prompt, max_tokens=1024)
 
+    def generate_kill_chain(
+        self,
+        threat_id: str,
+        threat_name: str,
+        description: str,
+    ) -> tuple[str, float]:
+        prompt = f"""Generate a MITRE ATT&CK kill chain timeline for this threat.
+
+Threat ID: {threat_id}
+Name: {threat_name}
+Description: {description}
+
+Return ONLY a JSON array with this exact structure, no explanation:
+[
+  {{"phase": "Initial Access", "tactic": "TA0001", "technique_id": "T1566", "technique_name": "Phishing", "description": "Brief description", "severity": "high"}},
+  {{"phase": "Execution", "tactic": "TA0002", "technique_id": "T1059", "technique_name": "Command Scripting", "description": "Brief description", "severity": "high"}}
+]
+
+Include 4-7 phases covering the realistic attack progression. severity must be: low, medium, high, or critical."""
+        return self._call(prompt, max_tokens=1024)
+
 
 def get_llm_service() -> LLMService:
     return LLMService()

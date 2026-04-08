@@ -207,7 +207,36 @@ async def find_similar_threats(
         ],
         "num_results": len(results),
     }
-
+@router.post("/intel/killchain")
+async def generate_kill_chain_endpoint(
+    body: IntelQueryRequest,
+    rag_svc: RAGService = Depends(get_rag_service),
+    llm_svc: LLMService = Depends(get_llm_service),
+):
+    import json
+    hybrid = rag_svc.retrieve_with_cves(query=body.query, top_k=3, max_cves=2)
+    mitre_results = hybrid["mitre_results"]
+    metadata = [r["metadata"] for r in mitre_results]
+    threat_id = metadata[0].get("threat_id", "General") if metadata else "General"
+    threat_name = metadata[0].get("name", body.query[:80]) if metadata else body.query[:80]
+    description = mitre_results[0]["chunk"][:300] if mitre_results else body.query
+    raw, latency = llm_svc.generate_kill_chain(
+        threat_id=threat_id,
+        threat_name=threat_name,
+        description=description,
+    )
+    try:
+        clean = raw.replace("```json", "").replace("```", "").strip()
+        phases = json.loads(clean)
+    except Exception:
+        phases = []
+    return {
+        "query": body.query,
+        "threat_id": threat_id,
+        "threat_name": threat_name,
+        "kill_chain": phases,
+        "latency_ms": round(latency, 2),
+    }
 
 
 
