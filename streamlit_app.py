@@ -984,7 +984,81 @@ def render_kill_chain(T: dict):
 
     elif generate:
         st.markdown(f"""<div style='background:{T["--warn-bg"]};border:1px solid {T["--warn-border"]};border-left:3px solid {T["--yellow"]};border-radius:6px;padding:0.8rem 1rem;font-family:JetBrains Mono,monospace;font-size:0.75rem;color:{T["--yellow"]};'>QUERY REQUIRED</div>""", unsafe_allow_html=True)
+def render_classifier(T: dict):
+    import httpx
+    st.markdown(f"""
+    <div style='margin-bottom:2rem;'>
+    <div style='font-family:Rajdhani,sans-serif;font-size:2rem;font-weight:700;color:{T["--text-primary"]};letter-spacing:0.05em;'>THREAT SEVERITY CLASSIFIER</div>
+    <div style='font-family:JetBrains Mono,monospace;font-size:0.7rem;color:{T["--text-dim"]};letter-spacing:0.15em;margin-top:0.3rem;'>GRADIENT BOOSTING · AUC=1.0 · TRAINED ON NVD CVE DATA</div>
+    </div>""", unsafe_allow_html=True)
 
+    try:
+        info = httpx.get(f"{BACKEND_URL}/classifier/info", timeout=10).json()
+        col1, col2, col3, col4 = st.columns(4)
+        for col, label, value, color in [
+            (col1, "MODEL STATUS", info.get("status","—").upper(), T["--green"]),
+            (col2, "AUC SCORE", f"{info.get('auc', 0):.4f}", T["--cyan"]),
+            (col3, "CV F1 SCORE", f"{info.get('cv_f1_mean', 0):.4f}", T["--cyan"]),
+            (col4, "TRAINING SAMPLES", str(info.get("num_training_samples", 0)), T["--yellow"]),
+        ]:
+            with col:
+                st.markdown(f"""<div style='background:{T["--bg-card"]};border:1px solid {T["--border"]};border-top:3px solid {color};border-radius:6px;padding:0.8rem 1rem;text-align:center;'>
+                <div style='font-family:JetBrains Mono,monospace;font-size:0.6rem;color:{T["--text-dim"]};letter-spacing:0.15em;margin-bottom:0.3rem;'>{label}</div>
+                <div style='font-family:Rajdhani,sans-serif;font-size:1.4rem;font-weight:700;color:{color};'>{value}</div></div>""", unsafe_allow_html=True)
+    except Exception:
+        st.error("Could not load model info")
+        return
+
+    st.markdown(f"<div style='margin:1.5rem 0;border-top:1px solid {T['--border']};'></div>", unsafe_allow_html=True)
+    st.markdown(f"<div style='font-family:Rajdhani,sans-serif;font-size:1.1rem;font-weight:600;color:{T['--text-secondary']};letter-spacing:0.1em;text-transform:uppercase;margin-bottom:1rem;'>PREDICT THREAT SEVERITY</div>", unsafe_allow_html=True)
+
+    col1, col2 = st.columns(2)
+    with col1:
+        cvss_score = st.slider("CVSS SCORE", min_value=0.0, max_value=10.0, value=7.5, step=0.1, key="clf_cvss")
+        risk_score = st.slider("RISK SCORE", min_value=0.0, max_value=1.0, value=0.5, step=0.01, key="clf_risk")
+    with col2:
+        description = st.text_area("VULNERABILITY DESCRIPTION", placeholder="e.g. Remote code execution vulnerability in web application", height=120, key="clf_desc")
+
+    predict = st.button("PREDICT SEVERITY", type="primary")
+
+    if predict:
+        try:
+            r = httpx.post(
+                f"{BACKEND_URL}/classifier/predict",
+                json={"cvss_score": cvss_score, "risk_score": risk_score, "description": description},
+                timeout=15,
+            )
+            r.raise_for_status()
+            result = r.json()
+        except Exception as e:
+            st.error(f"Prediction error: {e}")
+            return
+
+        severity = result.get("predicted_severity", "UNKNOWN")
+        confidence = result.get("confidence", 0.0)
+        probs = result.get("probabilities", {})
+
+        SEV_COLORS = {"CRITICAL": T["--red"], "HIGH": T["--orange"], "MEDIUM": T["--yellow"], "LOW": T["--green"]}
+        color = SEV_COLORS.get(severity, T["--text-dim"])
+
+        st.markdown(f"<div style='margin:1.5rem 0;border-top:1px solid {T['--border']};'></div>", unsafe_allow_html=True)
+        st.markdown(f"""<div style='background:{color}22;border:2px solid {color};border-radius:8px;padding:1.5rem;text-align:center;margin-bottom:1.5rem;'>
+        <div style='font-family:JetBrains Mono,monospace;font-size:0.7rem;color:{color};letter-spacing:0.2em;margin-bottom:0.5rem;'>PREDICTED SEVERITY</div>
+        <div style='font-family:Rajdhani,sans-serif;font-size:3rem;font-weight:700;color:{color};'>{severity}</div>
+        <div style='font-family:JetBrains Mono,monospace;font-size:0.85rem;color:{color};margin-top:0.3rem;'>Confidence: {confidence:.1%}</div>
+        </div>""", unsafe_allow_html=True)
+
+        st.markdown(f"<div style='font-family:Rajdhani,sans-serif;font-size:1rem;font-weight:600;color:{T['--text-secondary']};letter-spacing:0.1em;text-transform:uppercase;margin-bottom:1rem;'>CLASS PROBABILITIES</div>", unsafe_allow_html=True)
+        for cls, prob in sorted(probs.items(), key=lambda x: x[1], reverse=True):
+            cls_color = SEV_COLORS.get(cls, T["--text-dim"])
+            bar_width = int(prob * 100)
+            st.markdown(f"""<div style='margin-bottom:0.8rem;'>
+            <div style='display:flex;justify-content:space-between;margin-bottom:0.3rem;'>
+            <span style='font-family:JetBrains Mono,monospace;font-size:0.75rem;color:{cls_color};'>{cls}</span>
+            <span style='font-family:JetBrains Mono,monospace;font-size:0.75rem;color:{T["--text-dim"]};'>{prob:.1%}</span></div>
+            <div style='background:{T["--border"]};border-radius:4px;height:8px;'>
+            <div style='background:{cls_color};width:{bar_width}%;height:8px;border-radius:4px;'></div></div>
+            </div>""", unsafe_allow_html=True)
 def render_analytics(T: dict):
     import httpx
     st.markdown(f"""
@@ -1100,7 +1174,7 @@ def main():
 
     st.sidebar.markdown(f"<div style='font-family:JetBrains Mono,monospace;font-size:0.65rem;color:{T['--text-dim']};letter-spacing:0.15em;text-transform:uppercase;margin-bottom:0.5rem;'>NAVIGATION</div>", unsafe_allow_html=True)
 
-    TABS = {"Overview": " ", "Threat Intel": " ", "Sigma Rules": " ", "CVE Intel": " ", "Alerts": " ", "Playbooks": " ", "Entity Graph": " ", "IOC": " ", "Kill Chain": " ", "Analytics": " "}
+    TABS = {"Overview": " ", "Threat Intel": " ", "Sigma Rules": " ", "CVE Intel": " ", "Alerts": " ", "Playbooks": " ", "Entity Graph": " ", "IOC": " ", "Kill Chain": " ", "Classifier": " ", "Analytics": " "}
     selected = st.sidebar.radio("nav", list(TABS.keys()), format_func=lambda x: f"{TABS[x]}  {x}", label_visibility="collapsed")
 
     st.sidebar.markdown(f"""<hr style='border-color:{T["--border"]};margin:1.5rem 0;'>
@@ -1129,6 +1203,8 @@ def main():
         render_ioc(T)
     elif selected == "Kill Chain":
         render_kill_chain(T)
+    elif selected == "Classifier":
+        render_classifier(T)
     elif selected == "Analytics":
         render_analytics(T)
 
