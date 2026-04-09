@@ -993,7 +993,7 @@ def render_classifier(T: dict):
     </div>""", unsafe_allow_html=True)
 
     try:
-        info = httpx.get(f"{BACKEND_URL}/classifier/info", timeout=10).json()
+        info = httpx.get(f"{BACKEND_URL}/classifier/info", headers={"X-API-Key": API_KEY}, timeout=10).json()
         col1, col2, col3, col4 = st.columns(4)
         for col, label, value, color in [
             (col1, "MODEL STATUS", info.get("status","—").upper(), T["--green"]),
