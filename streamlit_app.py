@@ -1005,8 +1005,8 @@ def render_classifier(T: dict):
                 st.markdown(f"""<div style='background:{T["--bg-card"]};border:1px solid {T["--border"]};border-top:3px solid {color};border-radius:6px;padding:0.8rem 1rem;text-align:center;'>
                 <div style='font-family:JetBrains Mono,monospace;font-size:0.6rem;color:{T["--text-dim"]};letter-spacing:0.15em;margin-bottom:0.3rem;'>{label}</div>
                 <div style='font-family:Rajdhani,sans-serif;font-size:1.4rem;font-weight:700;color:{color};'>{value}</div></div>""", unsafe_allow_html=True)
-    except Exception:
-        st.error("Could not load model info")
+    except Exception as e:
+        st.error(f"Could not load model info: {e}")
         return
 
     st.markdown(f"<div style='margin:1.5rem 0;border-top:1px solid {T['--border']};'></div>", unsafe_allow_html=True)
